@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e2f1f8"><meta name="description" content="Untangle a rotating cube of arrows. Every puzzle is solvable. Play, grow, and pick up right where you left off.">
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>Arrow Cube — A little room to think</title>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Arrow Cube home"><svg viewBox="0 0 40 44" aria-hidden="true"><path d="M20 3 37 13v19L20 42 3 32V13Z M3 13l17 10 17-10 M20 23v19"/><path d="M12 16v-5l8-5m-8 5 5 1"/></svg><span>ARROW<span class="brand-light">CUBE</span></span></a>
+      <div class="header-actions"><span class="saved" id="save-status"><i></i> Progress saved</span><button id="install" class="quiet" hidden>Install app <span aria-hidden="true">↗</span></button><button id="sound" class="icon-button" aria-label="Turn sound off" aria-pressed="true" title="Sound on">♫</button></div>
+    </header>
+    <main>
+      <aside class="sidebar">
+        <div class="level-heading"><span class="eyebrow">A LITTLE ROOM TO THINK</span><h1>Find your<br>way out<span>.</span></h1><p class="intro">One cube. Six sides.<br>A clear path for every arrow.</p></div>
+        <section class="level-card" aria-label="Level progress">
+          <div class="level-card-top"><span class="eyebrow">CURRENT LEVEL</span><span class="level-badge" id="dimension">3 × 3</span></div>
+          <div class="level-number"><span id="level">03</span><span class="level-caption">a new dimension<br>with every win</span></div>
+          <div class="progress-track"><div id="progress-fill"></div></div>
+          <div class="progress-label"><span><b id="remaining">0</b> arrows left</span><span id="progress-percent">0%</span></div>
+          <button id="choose-size" class="size-button">Choose starting difficulty <span aria-hidden="true">↗</span></button>
+        </section>
+        <div class="instructions"><span class="eyebrow">THE WAY IT WORKS</span><p><span class="step">01</span> Drag to explore all six sides.</p><p><span class="step">02</span> Tap an arrow with a clear path.</p><p><span class="step">03</span> Clear the cube. Go one size bigger.</p></div>
+        <div class="sidebar-foot"><span class="tiny-cube">◇</span> No timer. Just you and the puzzle.</div>
+      </aside>
+      <section class="play-area" aria-label="Arrow cube puzzle">
+        <div class="play-top"><span class="mode-pill"><i></i> FREE PLAY</span><span class="move-count"><b id="moves">0</b> moves</span></div>
+        <div id="cube-stage" tabindex="0" role="group" aria-label="3D puzzle. Drag to rotate, tap an arrow to remove it. Arrow keys rotate, H gives a hint, Enter removes the hinted arrow."><div id="loading">Shaping your puzzle…</div></div>
+        <div class="stage-caption"><span aria-hidden="true">↔</span> <span id="gesture-help">Drag to rotate · Scroll to zoom · Tap to release</span></div>
+        <div class="game-toolbar" aria-label="Puzzle tools"><button id="hint"><span aria-hidden="true">✧</span> Hint</button><button id="reset-view"><span aria-hidden="true">⟳</span> Center</button><button id="restart"><span aria-hidden="true">↺</span> Restart</button><button id="help" aria-label="Game instructions"><span aria-hidden="true">?</span></button></div>
+        <div id="toast" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <footer><span>TURN IT. TRACE IT. LET IT GO.</span><span>Made for a moment of focus.</span></footer>
+  </div>
+  <dialog id="difficulty-dialog"><form id="difficulty-form"><button type="button" class="dialog-close" data-close aria-label="Close">×</button><span class="eyebrow">FIND YOUR STARTING POINT</span><h2>A little challenge.<br>Or a bigger one.</h2><p>Level is the number of cells along each edge. Clear a cube to unlock the next size.</p><div class="difficulty-options"><button type="button" data-size="3"><strong>3 × 3</strong><span>Easy</span></button><button type="button" data-size="5"><strong>5 × 5</strong><span>Medium</span></button><button type="button" data-size="8"><strong>8 × 8</strong><span>Hard</span></button><button type="button" data-size="12"><strong>12 × 12</strong><span>Expert</span></button></div><label class="custom-size">Custom starting size <input id="size-input" type="number" min="2" max="64" value="3" required inputmode="numeric"></label><p class="small">Starting a new puzzle replaces your current board. Progress stays on this device.</p><button class="primary" type="submit">Start this cube <span aria-hidden="true">↗</span></button></form></dialog>
+  <dialog id="win-dialog"><div class="win-mark" aria-hidden="true">✧</div><span class="eyebrow">EVERY ARROW FOUND ITS WAY</span><h2>Beautifully<br>untangled.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
+  <dialog id="help-dialog"><button class="dialog-close" data-close aria-label="Close">×</button><span class="eyebrow">SIX SIDES. ONE SIMPLE RULE.</span><h2>Follow the arrow.</h2><p>Each line can only move in the direction of its arrowhead. If another line is in its way, clear that line first. A clear arrow slides off the edge.</p><p>Drag the cube to find the paths on every face. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate. Press H for a hint and Enter to release the highlighted arrow.</p><p>Your exact puzzle and progress are saved automatically in this browser. Once installed, the game works offline.</p><button class="primary" data-close>Got it</button></dialog>
+  <noscript>This game needs JavaScript enabled to render the 3D cube.</noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
