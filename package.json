@@ -5,9 +5,10 @@
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite",
     "build": "vite build && node scripts/build-sw.mjs",
-    "preview": "vite preview --host 0.0.0.0",
+    "app": "pnpm build && vite preview",
+    "preview": "vite preview",
     "test": "node --test tests/*.test.js"
   },
   "dependencies": { "three": "^0.182.0" },

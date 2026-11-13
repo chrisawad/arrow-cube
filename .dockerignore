@@ -1,0 +1,10 @@
+.git
+.github
+.openai
+.pnpm-store
+node_modules
+dist
+.env
+.env.*
+*.log
+*.tar.gz

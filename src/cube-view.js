@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { arrowShape, arrowFragments, arrowHead, findArrowCollision, bumpTimings, sampleBumpMotion } from './arrow-motion.js';
+import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
 // top-left grid origin; the plane UV conversion below shares that convention.
@@ -19,86 +21,118 @@ function distanceToSegment(p, a, b) {
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
 }
 
-function paintArrow(ctx, points, direction, color, unit) {
+function paintArrow(ctx, points, direction, color, unit, shape, hasHead = true) {
   if (!points.length) return;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = unit * 0.19;
+  ctx.lineWidth = unit * shape.radius * 2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
   points.forEach((p, i) => i ? ctx.lineTo(p.x * unit, p.y * unit) : ctx.moveTo(p.x * unit, p.y * unit));
   if (points.length === 1) {
-    ctx.moveTo((points[0].x - direction.x * 0.3) * unit, (points[0].y - direction.y * 0.3) * unit);
+    ctx.moveTo((points[0].x - direction.x * shape.singletonStem) * unit, (points[0].y - direction.y * shape.singletonStem) * unit);
     ctx.lineTo(points[0].x * unit, points[0].y * unit);
   }
   ctx.stroke();
-  const h = points.at(-1), d = direction;
-  const tip = { x: h.x + d.x * 0.32, y: h.y + d.y * 0.32 };
-  const base = { x: h.x - d.x * 0.14, y: h.y - d.y * 0.14 };
+  if (!hasHead) return;
+  const [tip, left, right] = arrowHead(points.at(-1), direction, shape);
   ctx.beginPath();
   ctx.moveTo(tip.x * unit, tip.y * unit);
-  ctx.lineTo((base.x - d.y * 0.26) * unit, (base.y + d.x * 0.26) * unit);
-  ctx.lineTo((base.x + d.y * 0.26) * unit, (base.y - d.x * 0.26) * unit);
+  ctx.lineTo(left.x * unit, left.y * unit);
+  ctx.lineTo(right.x * unit, right.y * unit);
   ctx.closePath();
   ctx.fill();
 }
 
-// Clip a sliding interval out of a path, extending its head along the exit ray.
-// The original turns remain in place until the tail passes them, just like a snake.
-function slidingPath(arrow, distance) {
-  const cells = arrow.cells, last = cells.at(-1), length = Math.max(0.6, cells.length - 1);
-  const sample = (s) => {
-    if (s < 0) return { x: cells[0].x - arrow.direction.x * -s, y: cells[0].y - arrow.direction.y * -s };
-    if (s >= cells.length - 1) return { x: last.x + arrow.direction.x * (s - cells.length + 1), y: last.y + arrow.direction.y * (s - cells.length + 1) };
-    const index = Math.floor(s), t = s - index, a = cells[index], b = cells[index + 1];
-    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-  };
-  const start = distance + cells.length - 1 - length;
-  const end = distance + cells.length - 1;
-  const result = [sample(start)];
-  for (let i = Math.max(0, Math.floor(start) + 1); i < Math.min(cells.length, end); i++) result.push(cells[i]);
-  result.push(sample(end));
-  return result;
+const vector = value => new THREE.Vector3(value.x, value.y, value.z);
+const faceNormal = face => new THREE.Vector3(...FACE_BASIS[face].normal);
+
+// Distances remain in grid cells. A crease is represented twice, once with each
+// face normal, so a ribbon bends over the edge without cutting through the cube.
+export function surfaceTrack(arrow, puzzle) {
+  const size = getGridSize(puzzle), scale = 1.024, shape = arrowShape(puzzle);
+  const cells = arrow.cells.map(cell => ({ ...cell, face: cell.face ?? arrow.face }));
+  const nodes = [];
+  cells.forEach((cell, index) => {
+    if (index && cell.face !== cells[index - 1].face) {
+      const point = vector(seamPoint(cells[index - 1], cell, size)).multiplyScalar(scale);
+      nodes.push({ point, normal: faceNormal(cells[index - 1].face), s: index - 0.5 });
+      nodes.push({ point: point.clone(), normal: faceNormal(cell.face), s: index - 0.5 });
+    }
+    nodes.push({ point: vector(cellToWorld(cell, size)).multiplyScalar(scale), normal: faceNormal(cell.face), s: index });
+  });
+  const basis = FACE_BASIS[cells.at(-1).face];
+  const direction = new THREE.Vector3(...basis.u).multiplyScalar(arrow.direction.x)
+    .addScaledVector(new THREE.Vector3(...basis.v), arrow.direction.y);
+  const unit = 2 * scale / size;
+  if (cells.length === 1) nodes.unshift({ point: nodes[0].point.clone().addScaledVector(direction, -shape.singletonStem * unit),
+    normal: nodes[0].normal.clone(), s: -shape.singletonStem });
+  return { nodes, unit, direction, length: Math.max(shape.singletonStem, cells.length - 1), head: cells.length - 1 };
 }
 
-// A flat, round-joined 3D ribbon can extend beyond the textured face. This avoids
-// clipping the departure at the cube boundary and keeps every arrow direction exact.
-function ribbonGeometry(points, direction, size) {
-  const vertices = [];
-  const push = (x, y) => vertices.push((x + 0.5) / size * 2 - 1, 1 - (y + 0.5) / size * 2, 0);
-  const triangle = (a, b, c) => { push(a.x, a.y); push(b.x, b.y); push(c.x, c.y); };
-  const radius = 0.095;
+export function sampleSurfaceTrack(track, s) {
+  const last = track.nodes.at(-1);
+  if (s >= last.s) return { point: last.point.clone().addScaledVector(track.direction, (s - last.s) * track.unit), normal: last.normal.clone(), s };
+  let index = 0;
+  while (index < track.nodes.length - 2 && track.nodes[index + 1].s <= s) index++;
+  const a = track.nodes[index], b = track.nodes[index + 1];
+  return { point: a.point.clone().lerp(b.point, (s - a.s) / (b.s - a.s)), normal: a.normal.clone(), s };
+}
+
+function ribbonGeometry(track, distance, shape) {
+  const start = track.head + distance - track.length, end = track.head + distance;
+  const points = [sampleSurfaceTrack(track, start), ...track.nodes.filter(node => node.s > start && node.s < end), sampleSurfaceTrack(track, end)];
+  const positions = [], normals = [];
+  const triangle = (a, b, c, normal) => {
+    for (const p of [a, b, c]) { positions.push(p.x, p.y, p.z); normals.push(normal.x, normal.y, normal.z); }
+  };
+  const radius = shape.radius * track.unit;
   for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1], b = points[i], length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const nx = -(b.y - a.y) / length * radius, ny = (b.x - a.x) / length * radius;
-    const a1 = { x: a.x + nx, y: a.y + ny }, a2 = { x: a.x - nx, y: a.y - ny };
-    const b1 = { x: b.x + nx, y: b.y + ny }, b2 = { x: b.x - nx, y: b.y - ny };
-    triangle(a1, a2, b1); triangle(a2, b2, b1);
+    const a = points[i - 1], b = points[i], tangent = b.point.clone().sub(a.point);
+    if (tangent.lengthSq() < 1e-12) continue;
+    const side = a.normal.clone().cross(tangent.normalize()).multiplyScalar(radius);
+    const a1 = a.point.clone().add(side), a2 = a.point.clone().sub(side);
+    const b1 = b.point.clone().add(side), b2 = b.point.clone().sub(side);
+    triangle(a1, a2, b1, a.normal); triangle(a2, b2, b1, a.normal);
   }
-  for (const p of points) {
-    for (let i = 0; i < 10; i++) {
-      const a = i * Math.PI / 5, b = (i + 1) * Math.PI / 5;
-      triangle(p, { x: p.x + Math.cos(a) * radius, y: p.y + Math.sin(a) * radius }, { x: p.x + Math.cos(b) * radius, y: p.y + Math.sin(b) * radius });
-    }
+  for (const node of points) {
+    const reference = Math.abs(node.normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const u = node.normal.clone().cross(reference).normalize(), v = node.normal.clone().cross(u);
+    const around = angle => node.point.clone().addScaledVector(u, Math.cos(angle) * radius).addScaledVector(v, Math.sin(angle) * radius);
+    for (let i = 0; i < 12; i++) triangle(node.point, around(i * Math.PI / 6), around((i + 1) * Math.PI / 6), node.normal);
   }
-  const h = points.at(-1), d = direction;
-  triangle({ x: h.x + d.x * 0.32, y: h.y + d.y * 0.32 },
-    { x: h.x - d.x * 0.14 - d.y * 0.26, y: h.y - d.y * 0.14 + d.x * 0.26 },
-    { x: h.x - d.x * 0.14 + d.y * 0.26, y: h.y - d.y * 0.14 - d.x * 0.26 });
+  const head = points.at(-1), direction = track.direction, side = head.normal.clone().cross(direction);
+  const tip = head.point.clone().addScaledVector(direction, shape.tip * track.unit);
+  const base = head.point.clone().addScaledVector(direction, -shape.base * track.unit);
+  triangle(tip, base.clone().addScaledVector(side, shape.wing * track.unit), base.clone().addScaledVector(side, -shape.wing * track.unit), head.normal);
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geometry.computeBoundingSphere();
   return geometry;
 }
 
+function flyingMaterial(initialColor = INK) {
+  const color = new THREE.Color(initialColor);
+  const material = new THREE.ShaderMaterial({
+    uniforms: { ink: { value: color }, opacity: { value: 1 } },
+    vertexShader: 'varying vec3 faceNormal; varying vec3 viewDirection; void main(){ vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
+    fragmentShader: 'uniform vec3 ink; uniform float opacity; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); gl_FragColor=vec4(mix(vec3(1.0),ink,nearFace),opacity);\n#include <colorspace_fragment>\n}',
+    side: THREE.DoubleSide, transparent: true, depthWrite: true,
+  });
+  material.color = color;
+  return material;
+}
+
 export class CubeView {
-  constructor(container, { onSelect = () => {}, onInteract = () => {} } = {}) {
+  constructor(container, { onSelect = () => {}, onInteract = () => {}, motion = 'auto' } = {}) {
     this.container = container;
     this.onSelect = onSelect;
     this.onInteract = onInteract;
     this.disposed = false;
     this.removed = new Set();
+    this.blocked = new Set();
     this.animations = new Map();
     this.pointers = new Map();
     this.velocity = { x: 0, y: 0 };
@@ -108,8 +142,13 @@ export class CubeView {
     this.lastTime = 0;
     this.highlighted = null;
     this.highlightTimer = 0;
-    this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.events = new AbortController();
+    this.motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.setMotionMode(motion);
+    this.motionPreference.addEventListener('change', () => {
+      this.setMotionMode(this.motionMode);
+      this.schedule();
+    }, { signal: this.events.signal });
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
     this.camera.position.z = 7;
@@ -134,27 +173,48 @@ export class CubeView {
     const fill = new THREE.DirectionalLight(0xd8eaff, 0.6);
     fill.position.set(5, -2, 3);
     this.scene.add(fill);
-    this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035), new THREE.MeshStandardMaterial({ color: 0xf3f8ff, roughness: 0.46, metalness: 0.02 }));
+    this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0xe2f1ff, opacity: 0.15, transparent: true, depthWrite: false }));
+    this.body.renderOrder = 2;
     this.cube.add(this.body);
+    this.edgeFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.044, 2.044, 2.044)),
+      new THREE.LineBasicMaterial({ color: 0xf4f6ff, transparent: true, opacity: 0.55, depthWrite: false }));
+    this.edgeFrame.renderOrder = 5;
+    this.cube.add(this.edgeFrame);
     this.faces = FACE_ROTATIONS.map((angles, index) => {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 1024;
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-      const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.73, metalness: 0, transparent: false });
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(1.998, 1.998), material);
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.015, depthWrite: true });
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.042, 2.042), material);
       plane.rotation.set(...angles);
       plane.position.copy(new THREE.Vector3(0, 0, 1.021).applyEuler(plane.rotation));
       plane.userData.face = index;
+      plane.renderOrder = 3;
       this.cube.add(plane);
-      return { canvas, ctx: canvas.getContext('2d'), texture, material, plane };
+      const ghostMaterial = new THREE.ShaderMaterial({ uniforms: { arrows: { value: texture } },
+        vertexShader: 'varying vec2 texCoord; void main(){ texCoord=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+        fragmentShader: 'uniform sampler2D arrows; varying vec2 texCoord; void main(){ float a=texture2D(arrows,texCoord).a; if(a<0.015)discard; gl_FragColor=vec4(1.0,1.0,1.0,a*0.96); }',
+        side: THREE.BackSide, transparent: true, depthWrite: false });
+      const ghost = new THREE.Mesh(plane.geometry, ghostMaterial);
+      ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 1;
+      this.cube.add(ghost);
+      return { canvas, ctx: canvas.getContext('2d'), texture, material, plane, ghost, ghostMaterial };
     });
     this.raycaster = new THREE.Raycaster();
     this.bindInput();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
+  }
+
+  setMotionMode(mode) {
+    this.motionMode = ['full', 'reduced'].includes(mode) ? mode : 'auto';
+    this.reducedMotion = this.motionMode === 'reduced'
+      || (this.motionMode === 'auto' && this.motionPreference.matches);
+    if (this.reducedMotion) this.velocity.x = this.velocity.y = 0;
   }
 
   resize() {
@@ -172,8 +232,8 @@ export class CubeView {
     this.schedule();
   }
 
-  setPuzzle(puzzle, removedSet = new Set()) {
-    this.cancelAnimations();
+  setPuzzle(puzzle, removedSet = new Set(), blockedSet = new Set()) {
+    this.cancelAnimations(false);
     this.puzzle = puzzle;
     // Every dimension brings the cube a little closer; the asymptote leaves
     // space for its full bounding sphere at every rotation when zoom is reset.
@@ -182,29 +242,45 @@ export class CubeView {
     this.updateCamera();
     this.removed = new Set(removedSet);
     this.arrowById = new Map(puzzle.arrows.map(a => [a.id, a]));
-    this.arrowsByFace = this.faces.map((_, face) => puzzle.arrows.filter(a => a.face === face));
+    this.blocked = new Set([...blockedSet].filter(id => this.arrowById.has(id)));
+    this.fragmentsById = new Map(puzzle.arrows.map(a => [a.id, arrowFragments(a, getGridSize(puzzle))]));
+    this.arrowsByFace = this.faces.map((_, face) => puzzle.arrows.filter(a => this.fragmentsById.get(a.id).some(fragment => fragment.face === face)));
     this.highlighted = null;
     clearTimeout(this.highlightTimer);
-    const resolution = Math.min(2048, Math.max(768, puzzle.size * 64));
-    for (const face of this.faces) face.canvas.width = face.canvas.height = resolution;
+    const resolution = Math.min(2048, Math.max(768, getGridSize(puzzle) * 64));
+    for (const face of this.faces) {
+      if (face.canvas.width === resolution && face.canvas.height === resolution) continue;
+      // WebGL texture storage cannot resize after upload. Replace both the near
+      // and ghost face bindings together, then release the old GPU allocation.
+      const previous = face.texture;
+      face.canvas.width = face.canvas.height = resolution;
+      const texture = new THREE.CanvasTexture(face.canvas);
+      texture.colorSpace = previous.colorSpace;
+      texture.anisotropy = previous.anisotropy;
+      face.texture = texture;
+      face.material.map = texture;
+      face.ghostMaterial.uniforms.arrows.value = texture;
+      previous.dispose();
+    }
     this.drawFaces();
     this.schedule();
   }
 
   drawFaces(onlyFace = null) {
     if (!this.puzzle) return;
-    const size = this.puzzle.size;
+    const size = getGridSize(this.puzzle), shape = arrowShape(this.puzzle);
     this.faces.forEach((face, index) => {
       if (onlyFace !== null && index !== onlyFace) return;
       const { ctx, canvas, texture } = face, unit = canvas.width / size;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, '#f0f8fc'); gradient.addColorStop(1, '#dbeaf0');
-      ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
       for (const arrow of this.arrowsByFace[index]) {
         if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
-        const color = this.highlighted?.id === arrow.id ? (this.highlighted.type === 'blocked' ? BLOCKED : HINT) : INK;
-        paintArrow(ctx, arrow.cells.map(p => ({ x: p.x + 0.5, y: p.y + 0.5 })), arrow.direction, color, unit);
+        const color = this.highlighted?.id === arrow.id ? (this.highlighted.type === 'blocked' ? BLOCKED : HINT)
+          : this.blocked.has(arrow.id) ? BLOCKED : INK;
+        for (const fragment of this.fragmentsById.get(arrow.id)) {
+          if (fragment.face !== index) continue;
+          paintArrow(ctx, fragment.points.map(p => ({ x: p.x + 0.5, y: p.y + 0.5 })), arrow.direction, color, unit, shape, fragment.head);
+        }
       }
       texture.needsUpdate = true;
     });
@@ -219,15 +295,21 @@ export class CubeView {
     this.raycaster.setFromCamera(mouse, this.camera);
     const hit = this.raycaster.intersectObjects(this.faces.map(f => f.plane), false)[0];
     if (!hit) return null;
-    const size = this.puzzle.size;
+    const size = getGridSize(this.puzzle), shape = arrowShape(this.puzzle);
     const p = { x: hit.uv.x * size - 0.5, y: (1 - hit.uv.y) * size - 0.5 };
-    let best = null, bestDistance = 0.34;
+    let best = null, bestDistance = Math.max(0.34, shape.wing + 0.04);
     for (const arrow of this.arrowsByFace[hit.object.userData.face]) {
       if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
       let distance = Infinity;
-      for (let i = 1; i < arrow.cells.length; i++) distance = Math.min(distance, distanceToSegment(p, arrow.cells[i - 1], arrow.cells[i]));
-      const head = arrow.cells.at(-1), d = arrow.direction;
-      distance = Math.min(distance, distanceToSegment(p, { x: head.x - d.x * 0.3, y: head.y - d.y * 0.3 }, { x: head.x + d.x * 0.32, y: head.y + d.y * 0.32 }));
+      for (const fragment of this.fragmentsById.get(arrow.id)) {
+        if (fragment.face !== hit.object.userData.face) continue;
+        for (let i = 1; i < fragment.points.length; i++) distance = Math.min(distance, distanceToSegment(p, fragment.points[i - 1], fragment.points[i]));
+        if (!fragment.head) continue;
+        const head = arrow.cells.at(-1), d = arrow.direction;
+        const stem = arrow.cells.length === 1 ? shape.singletonStem : shape.base;
+        distance = Math.min(distance, distanceToSegment(p, { x: head.x - d.x * stem, y: head.y - d.y * stem },
+          { x: head.x + d.x * shape.tip, y: head.y + d.y * shape.tip }));
+      }
       if (distance < bestDistance) { bestDistance = distance; best = arrow.id; }
     }
     return best;
@@ -247,37 +329,65 @@ export class CubeView {
     this.drawFaces();
   }
 
+  drawArrowFaces(arrow) {
+    for (const face of new Set(arrow.cells.map(cell => cell.face ?? arrow.face))) this.drawFaces(face);
+  }
+
   removeArrow(id) {
     const arrow = this.arrowById?.get(id);
-    if (!arrow || this.removed.has(id)) return Promise.resolve(false);
+    if (this.disposed || !arrow || this.removed.has(id)) return Promise.resolve(false);
     if (this.animations.has(id)) return this.animations.get(id).promise;
-    const face = this.faces[arrow.face];
-    const material = new THREE.MeshBasicMaterial({ color: INK, side: THREE.DoubleSide, transparent: true, depthWrite: false });
-    const mesh = new THREE.Mesh(ribbonGeometry(slidingPath(arrow, 0), arrow.direction, this.puzzle.size), material);
-    mesh.position.copy(face.plane.position).multiplyScalar(1.003);
-    mesh.quaternion.copy(face.plane.quaternion);
+    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle);
+    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK);
+    const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
+    mesh.renderOrder = 4;
     this.cube.add(mesh);
     let resolve;
     const promise = new Promise(r => { resolve = r; });
-    const head = arrow.cells.at(-1), direction = arrow.direction, size = this.puzzle.size;
+    const head = arrow.cells.at(-1), direction = arrow.direction, size = getGridSize(this.puzzle);
     const edgeDistance = direction.x > 0 ? size - 0.5 - head.x : direction.x < 0 ? head.x + 0.5
       : direction.y > 0 ? size - 0.5 - head.y : head.y + 0.5;
-    const clearDistance = Math.max(0.6, arrow.cells.length - 1) + edgeDistance + 0.35;
-    const animation = { arrow, mesh, material, clearDistance, travel: clearDistance + size * 1.3,
-      start: performance.now(), duration: this.reducedMotion ? 150 : Math.min(1200, 650 + arrow.cells.length * 9), resolve, promise };
+    const clearDistance = track.length + edgeDistance + 0.35;
+    const animation = { kind: 'remove', arrow, mesh, material, shape, track, clearDistance, travel: clearDistance + size * 1.3,
+      reducedMotion: this.reducedMotion, start: performance.now(), duration: this.reducedMotion ? 150 : Math.min(520, 260 + arrow.cells.length * 4), resolve, promise };
     this.animations.set(id, animation);
-    this.drawFaces(arrow.face);
+    this.drawArrowFaces(arrow);
     this.schedule();
     return promise;
   }
 
-  cancelAnimations() {
+  bumpArrow(id, { onImpact = () => {} } = {}) {
+    const arrow = this.arrowById?.get(id);
+    if (this.disposed || !arrow || this.removed.has(id)) return Promise.resolve(false);
+    if (this.animations.has(id)) return this.animations.get(id).promise;
+    const collision = findArrowCollision(this.puzzle, arrow, this.removed);
+    if (!collision) return Promise.resolve(false);
+    if (this.highlighted?.id === id) { this.highlighted = null; clearTimeout(this.highlightTimer); }
+    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle);
+    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK);
+    const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
+    mesh.renderOrder = 4;
+    this.cube.add(mesh);
+    let resolve;
+    const promise = new Promise(r => { resolve = r; });
+    this.animations.set(id, { kind: 'bump', arrow, mesh, material, shape, track, start: performance.now(),
+      distance: collision.distance, timings: bumpTimings(collision.distance, this.reducedMotion),
+      reducedMotion: this.reducedMotion, lastDistance: 0, impacted: false, onImpact, resolve, promise });
+    this.drawArrowFaces(arrow);
+    this.schedule();
+    return promise;
+  }
+
+  cancelAnimations(redraw = true) {
+    const changedFaces = new Set();
     for (const animation of this.animations.values()) {
+      for (const cell of animation.arrow.cells) changedFaces.add(cell.face ?? animation.arrow.face);
       this.cube.remove(animation.mesh);
       animation.mesh.geometry.dispose(); animation.material.dispose();
       animation.resolve(false);
     }
     this.animations.clear();
+    if (redraw && !this.disposed) for (const face of changedFaces) this.drawFaces(face);
   }
 
   resetView() {
@@ -417,13 +527,40 @@ export class CubeView {
       if (t === 1) this.orientationTween = null; else active = true;
     }
     for (const [id, animation] of this.animations) {
+      if (animation.kind === 'bump') {
+        const state = sampleBumpMotion(time - animation.start, animation.distance, animation.timings, animation.reducedMotion, this.blocked.has(id));
+        if (state.distance !== animation.lastDistance) {
+          animation.mesh.geometry.dispose();
+          animation.mesh.geometry = ribbonGeometry(animation.track, state.distance, animation.shape);
+          animation.lastDistance = state.distance;
+        }
+        animation.material.color.set(state.color === 'blocked' ? BLOCKED : INK);
+        if (state.impacted && !animation.impacted) {
+          animation.impacted = true;
+          this.blocked.add(id);
+          animation.onImpact();
+          // An impact handler may reset the board or dispose the view.
+          if (!this.animations.has(id)) continue;
+        }
+        if (state.complete) {
+          this.cube.remove(animation.mesh);
+          animation.mesh.geometry.dispose(); animation.material.dispose();
+          this.animations.delete(id);
+          this.drawArrowFaces(animation.arrow);
+          animation.resolve(true);
+        } else active = true;
+        continue;
+      }
       const t = clamp((time - animation.start) / animation.duration, 0, 1);
-      const distance = animation.travel * t * t;
-      animation.mesh.geometry.dispose();
-      animation.mesh.geometry = ribbonGeometry(slidingPath(animation.arrow, distance), animation.arrow.direction, this.puzzle.size);
+      const distance = animation.reducedMotion ? 0 : animation.travel * t * t;
+      if (!animation.reducedMotion) {
+        animation.mesh.geometry.dispose();
+        animation.mesh.geometry = ribbonGeometry(animation.track, distance, animation.shape);
+      }
       // Keep the whole arrow solid until its tail clears the edge. Only the
       // airborne portion fades, so long paths never dissolve while still on the board.
-      animation.material.opacity = 1 - clamp((distance - animation.clearDistance) / (animation.travel - animation.clearDistance), 0, 1);
+      animation.material.uniforms.opacity.value = animation.reducedMotion ? 1 - t
+        : 1 - clamp((distance - animation.clearDistance) / (animation.travel - animation.clearDistance), 0, 1);
       if (t === 1) {
         this.cube.remove(animation.mesh);
         animation.mesh.geometry.dispose(); animation.material.dispose();
@@ -443,7 +580,8 @@ export class CubeView {
     this.resizeObserver.disconnect();
     this.cancelAnimations();
     this.body.geometry.dispose(); this.body.material.dispose();
-    for (const face of this.faces) { face.plane.geometry.dispose(); face.material.dispose(); face.texture.dispose(); }
+    this.edgeFrame.geometry.dispose(); this.edgeFrame.material.dispose();
+    for (const face of this.faces) { face.plane.geometry.dispose(); face.material.dispose(); face.ghostMaterial.dispose(); face.texture.dispose(); }
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.canvas.remove();

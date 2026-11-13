@@ -1,43 +1,135 @@
-/** Installation is an enhancement; keep its button hidden until the browser can prompt. */
-export function setupInstall(button, notify = () => {}) {
-  let deferredPrompt = null;
-  let installed = globalThis.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
-  const modernInstall = typeof navigator.install === 'function';
+/** Installation remains browser-controlled; help is available even without a prompt. */
+export function setupInstall(button, notify = () => {}, { production = import.meta.env?.PROD === true } = {}) {
+  const helpButton = document.getElementById('install-help');
+  const helpDialog = document.getElementById('install-dialog');
+  const dialogButton = document.getElementById('install-confirm');
+  const status = document.getElementById('install-status');
+  const guidance = document.getElementById('install-guidance');
+  const offlineStatus = document.getElementById('install-offline');
+  const buttons = [button, dialogButton].filter(Boolean);
+  const secure = window.isSecureContext === true;
+  const embedded = window.self !== window.top;
+  const modernInstall = secure && !embedded && typeof navigator.install === 'function';
   const controller = new AbortController();
   const options = { signal: controller.signal };
-  function updateButton() { button.hidden = installed || (!modernInstall && !deferredPrompt); }
-  updateButton();
+  let deferredPrompt = null, pending = false, accepted = false, message = '';
+  let installed = globalThis.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
+  let offline = !secure ? 'Offline play needs a secure connection.'
+    : !production ? 'Offline play is not enabled for this preview. Use the full app address for offline play.'
+      : !('serviceWorker' in navigator) ? 'This browser does not provide offline app support.' : 'Preparing offline play…';
+
+  function update() {
+    const ready = secure && !embedded && !installed && (pending || modernInstall || deferredPrompt !== null);
+    for (const control of buttons) {
+      control.hidden = !ready;
+      if (pending) control.setAttribute('aria-disabled', 'true');
+      else control.removeAttribute('aria-disabled');
+    }
+    if (helpButton) helpButton.hidden = installed || ready;
+    let title, detail;
+    if (installed) {
+      title = 'Arrow Cube is installed or running as an app.';
+      detail = 'Open it from your device’s apps whenever you want to play.';
+    } else if (!secure) {
+      title = 'This address cannot offer app installation.';
+      detail = 'Open the game at an HTTPS address in your regular browser. A localhost address also works on the computer serving the game. Plain HTTP over your local network does not support app installation.';
+    } else if (embedded) {
+      title = 'Open the game directly in a browser.';
+      detail = 'App previews and embedded pages may not offer installation. Open this address in a full browser such as Chrome or Edge, then look for its app-install option.';
+    } else if (pending) {
+      title = 'Continue in your browser’s install prompt.';
+      detail = 'Your browser controls installation. You can accept or cancel its confirmation.';
+    } else if (ready) {
+      title = 'Your browser is ready to install Arrow Cube.';
+      detail = 'Choose Install app to open the browser’s confirmation. Installation only happens with your approval.';
+    } else if (accepted) {
+      title = 'The browser accepted your install request.';
+      detail = 'Finish any remaining browser confirmation. Installation has not yet been confirmed by this page.';
+    } else {
+      title = 'Your browser has not offered an install prompt.';
+      detail = 'Open this page directly in a full browser, rather than an app preview. Check the browser menu for its install or add-to-home-screen option. Availability depends on the browser, and an already-installed app may not show another prompt.';
+    }
+    if (status) status.textContent = message || title;
+    if (guidance) guidance.textContent = detail;
+    if (offlineStatus) offlineStatus.textContent = offline;
+  }
+  function announce(text) { message = text; update(); notify(text); }
+  update();
+  helpButton?.addEventListener('click', () => {
+    update();
+    if (helpDialog && !helpDialog.open) helpDialog.showModal();
+  }, options);
   window.addEventListener('beforeinstallprompt', event => {
-    event.preventDefault(); deferredPrompt = event; updateButton();
+    if (!secure || embedded || installed) return;
+    event.preventDefault();
+    deferredPrompt = event; accepted = false; message = ''; update();
   }, options);
   window.addEventListener('appinstalled', () => {
-    installed = true; deferredPrompt = null; updateButton(); notify('Arrow Cube is installed.');
-  }, options);
-  button.addEventListener('click', async () => {
-    if (button.getAttribute('aria-disabled') === 'true') return;
-    button.setAttribute('aria-disabled', 'true');
-    try {
-      if (modernInstall) {
-        await navigator.install();
-        installed = true; notify('Arrow Cube was installed or opened.');
-      } else if (deferredPrompt) {
-        const prompt = deferredPrompt; deferredPrompt = null;
-        await prompt.prompt();
-        const choice = await prompt.userChoice;
-        if (choice.outcome === 'accepted') { installed = true; notify('Arrow Cube is installed.'); }
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') { console.warn('Installation could not start.', error); notify('Your browser could not install the game. You can keep playing here.'); }
-    } finally { button.removeAttribute('aria-disabled'); updateButton(); }
+    installed = true; deferredPrompt = null; accepted = false;
+    announce('Arrow Cube is installed.');
   }, options);
 
-  // Default worker lifecycle avoids replacing code in an active game. A new version
-  // takes over once the old app is closed; game progress is saved independently.
-  if (import.meta.env.PROD && 'serviceWorker' in navigator && window.isSecureContext) {
-    const register = () => navigator.serviceWorker.register('./sw.js').catch(error => {
-      console.warn('Offline mode could not be enabled.', error);
-      notify('Offline setup is unavailable. Progress still saves on this device.');
-    });
+  async function install() {
+    if (pending || installed || !secure || embedded || (!modernInstall && !deferredPrompt)) return;
+    pending = true; message = ''; update();
+    try {
+      if (modernInstall) {
+        // Call before any await so browser-controlled consent retains the click activation.
+        await navigator.install();
+        if (controller.signal.aborted) return;
+        installed = true;
+        announce('Arrow Cube was installed or opened.');
+      } else {
+        // The captured event is single-use, including after dismissal or a failure.
+        const prompt = deferredPrompt;
+        deferredPrompt = null;
+        const prompting = prompt.prompt();
+        update();
+        await prompting;
+        const choice = await prompt.userChoice;
+        if (controller.signal.aborted) return;
+        if (!installed) {
+          accepted = choice.outcome === 'accepted';
+          announce(accepted ? 'Install request accepted. Finish any browser confirmation.'
+            : 'Installation canceled. You can use Install help or try again when the browser offers it.');
+        }
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      if (!installed) announce(error?.name === 'AbortError'
+        ? 'Installation was canceled or could not complete. You can keep playing here.'
+        : 'Installation could not start. Try again when your browser offers it, or check its app-install option.');
+      if (error?.name !== 'AbortError') console.warn('Installation could not start.', error);
+    } finally { pending = false; if (!controller.signal.aborted) update(); }
+  }
+  for (const control of buttons) control.addEventListener('click', install, options);
+
+  // Keep the default worker lifecycle: no forced reload during an active puzzle.
+  if (production && secure && 'serviceWorker' in navigator) {
+    const register = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('./sw.js');
+        if (controller.signal.aborted) return;
+        const watch = () => {
+          const worker = registration.installing || registration.waiting || registration.active;
+          const check = () => {
+            if (controller.signal.aborted) return;
+            if (registration.active?.state === 'activated' || worker?.state === 'activated') offline = 'Offline play is ready on this device.';
+            else if (worker?.state === 'redundant') offline = 'Offline setup could not finish. You can keep playing online.';
+            update();
+          };
+          worker?.addEventListener('statechange', check, options);
+          check();
+        };
+        registration.addEventListener('updatefound', watch, options);
+        watch();
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.warn('Offline mode could not be enabled.', error);
+        offline = 'Offline setup could not finish. You can keep playing online.';
+        update();
+      }
+    };
     if (document.readyState === 'complete') register();
     else window.addEventListener('load', register, { once: true, signal: controller.signal });
   }

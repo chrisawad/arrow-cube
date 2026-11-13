@@ -7,3 +7,12 @@
 #cube-stage canvas{position:absolute;inset:0;outline:none}#cube-stage canvas:focus-visible{outline:2px solid var(--purple);outline-offset:-6px;border-radius:24px}
 @media(max-width:700px){.game-toolbar{max-width:100%;justify-content:center}.game-toolbar button{padding:11px clamp(8px,3vw,18px);gap:5px;white-space:nowrap}.game-toolbar #help{padding:11px 12px}footer{gap:12px;flex-wrap:wrap}.level-caption{min-width:0}.level-card{column-gap:12px}.header-actions .quiet{font-size:10px;padding:6px}.header-actions{gap:7px}}
 @media(max-width:700px){#cube-stage{width:calc(100% + 20px)}}
+#difficulty-dialog{max-height:calc(100dvh - 24px);scroll-padding-bottom:85px}
+#size-help{font-size:11px;margin:5px 0 0}.custom-size input{font-size:16px;min-height:48px;width:90px}
+#size-error{min-height:1.4em;margin:7px 0 0;font-size:12px;color:#b33d37}
+#size-input:user-invalid,#size-input[aria-invalid=true]{border-color:#b33d37;background:#fff1ef}
+.difficulty-submit{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(#f6fbff00,#f6fbff 12px)}
+#install-dialog{max-height:calc(100dvh - 24px)}#install-status{color:var(--ink);font-weight:650}#install-dialog>.quiet{display:block;margin:12px auto 0}#install-dialog .primary{margin-top:20px}#install-help,#install{white-space:nowrap}button[aria-disabled=true]{opacity:.55;cursor:wait}
+.motion-setting{display:flex;align-items:center;gap:8px;margin:-12px 0 14px;font-size:11px;color:#687c8d}
+.motion-setting select{font:inherit;color:var(--ink);background:#ffffffab;border:1px solid #bed2df;border-radius:8px;padding:7px 9px;min-height:36px;max-width:100%}
+.motion-setting select:focus-visible{outline:3px solid var(--purple);outline-offset:3px}
