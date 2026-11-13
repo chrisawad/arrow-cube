@@ -8,9 +8,9 @@ import {setupInstall} from './install.js';
 const $ = id => document.getElementById(id);
 let puzzle, removed = new Set(), blocked = new Set(), moves = 0, busy = false, hintId = null, generation = 0, toastTimer;
 const saved = loadProgress();
-let bestSize = saved?.bestSize || 3, soundEnabled = saved?.sound ?? true;
+let bestSize = saved?.bestSize || 5, soundEnabled = saved?.sound ?? true;
 const requestedMotion = new URLSearchParams(window.location.search).get('motion');
-let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'auto';
+let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'full';
 const audio = new GameAudio(soundEnabled);
 let view;
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
@@ -64,7 +64,7 @@ async function selectArrow(id){
   }
 }
 function hint(){if(busy)return;if(removed.size===puzzle.arrows.length){showWin();return;}const available=getRemovable(puzzle,removed);if(!available.length)return;const arrow=available[0];hintId=arrow.id;view.focusFace(arrow.face);view.highlight(arrow.id,'hint');notify('The purple arrow has a clear path. Tap it to let it go.');}
-try{view=new CubeView($('cube-stage'),{onSelect:selectArrow,motion:motionMode});start(saved?.size||3,saved?.seed??seed(),saved);}catch(error){console.error(error);$('loading').textContent='The 3D view could not start. Enable hardware acceleration or try another browser.';}
+try{view=new CubeView($('cube-stage'),{onSelect:selectArrow,motion:motionMode});start(saved?.size||5,saved?.seed??seed(),saved);}catch(error){console.error(error);$('loading').textContent='The 3D view could not start. Enable hardware acceleration or try another browser.';}
 $('motion-select').value=motionMode;
 if(['auto','full','reduced'].includes(requestedMotion)){
   const cleanURL=new URL(window.location.href);

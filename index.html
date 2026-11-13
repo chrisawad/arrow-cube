@@ -16,8 +16,8 @@
       <aside class="sidebar">
         <div class="level-heading"><span class="eyebrow">A LITTLE ROOM TO THINK</span><h1>Find your<br>way out<span>.</span></h1><p class="intro">One cube. Six sides.<br>A clear path for every arrow.</p></div>
         <section class="level-card" aria-label="Level progress">
-          <div class="level-card-top"><span class="eyebrow">CURRENT LEVEL</span><span class="level-badge" id="dimension">3 × 3</span></div>
-          <div class="level-number"><span id="level">03</span><span class="level-caption">a new dimension<br>with every win</span></div>
+          <div class="level-card-top"><span class="eyebrow">CURRENT LEVEL</span><span class="level-badge" id="dimension">5 × 5</span></div>
+          <div class="level-number"><span id="level">05</span><span class="level-caption">a new dimension<br>with every win</span></div>
           <div class="progress-track"><div id="progress-fill"></div></div>
           <div class="progress-label"><span><b id="remaining">0</b> arrows left</span><span id="progress-percent">0%</span></div>
           <button id="choose-size" class="size-button">Choose starting difficulty <span aria-hidden="true">↗</span></button>
@@ -29,7 +29,7 @@
         <div class="play-top"><span class="mode-pill"><i></i> FREE PLAY</span><span class="move-count"><b id="moves">0</b> moves</span></div>
         <div id="cube-stage" tabindex="0" role="group" aria-label="3D puzzle. Drag to rotate, tap an arrow to remove it. Arrow keys rotate, H gives a hint, Enter removes the hinted arrow."><div id="loading">Shaping your puzzle…</div></div>
         <div class="stage-caption"><span aria-hidden="true">↔</span> <span id="gesture-help">Drag to rotate · Scroll to zoom · Tap to release</span></div>
-        <label class="motion-setting" for="motion-select">Arrow motion <select id="motion-select"><option value="auto">Follow device</option><option value="full">Full animation</option><option value="reduced">Reduced motion</option></select></label>
+        <label class="motion-setting" for="motion-select">Arrow motion <select id="motion-select"><option value="auto">Follow device</option><option value="full" selected>Full animation</option><option value="reduced">Reduced motion</option></select></label>
         <div class="game-toolbar" aria-label="Puzzle tools"><button id="hint"><span aria-hidden="true">✧</span> Hint</button><button id="reset-view"><span aria-hidden="true">⟳</span> Center</button><button id="restart"><span aria-hidden="true">↺</span> Restart</button><button id="help" aria-label="Game instructions"><span aria-hidden="true">?</span></button></div>
         <div id="toast" role="status" aria-live="polite"></div>
       </section>
@@ -50,11 +50,11 @@
       </div>
       <div class="custom-size">
         <div><label for="size-input">Custom starting size</label><p id="size-help">Whole number, 2–64</p></div>
-        <input id="size-input" name="size" type="number" min="2" max="64" step="1" value="3" required inputmode="numeric" enterkeyhint="go" aria-describedby="size-help" aria-invalid="false">
+        <input id="size-input" name="size" type="number" min="2" max="64" step="1" value="5" required inputmode="numeric" enterkeyhint="go" aria-describedby="size-help" aria-invalid="false">
       </div>
       <p id="size-error" class="field-error"></p>
       <p class="small">Starting a new puzzle replaces your current board. Progress stays on this device.</p>
-      <div class="difficulty-submit"><button class="primary" type="submit"><span id="start-cube-label">Start 3 × 3 cube</span><span aria-hidden="true">↗</span></button></div>
+      <div class="difficulty-submit"><button class="primary" type="submit"><span id="start-cube-label">Start 5 × 5 cube</span><span aria-hidden="true">↗</span></button></div>
     </form>
   </dialog>
   <dialog id="win-dialog"><div class="win-mark" aria-hidden="true">✧</div><span class="eyebrow">EVERY ARROW FOUND ITS WAY</span><h2>Beautifully<br>untangled.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>

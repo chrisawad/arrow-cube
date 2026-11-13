@@ -275,7 +275,18 @@ test('full-motion link restores movement preference without replacing the saved 
   assert.deepEqual(restored.state().removed, [0, 1]);
 });
 
-test('unknown motion links preserve the saved choice and old saves follow the device', () => {
+test('new games start at five with full animation while saved levels and explicit choices are preserved', () => {
+  const fresh = boot();
+  assert.equal(fresh.state().size, 5);
+  assert.equal(fresh.view.options.motion, 'full');
+  assert.equal(fresh.get('motion-select').value, 'full');
+  assert.equal(fresh.saves.at(-1).bestSize, 5);
+  assert.equal(fresh.saves.at(-1).motion, 'full');
   assert.equal(boot(saveFor(3, 17, { motion: 'full' }), { search: '?motion=invalid' }).view.options.motion, 'full');
-  assert.equal(boot(saveFor()).view.options.motion, 'auto');
+  assert.equal(boot(saveFor()).view.options.motion, 'full');
+  for (const motion of ['auto', 'reduced']) {
+    const restored = boot(saveFor(3, 17, { motion }));
+    assert.equal(restored.state().size, 3);
+    assert.equal(restored.view.options.motion, motion);
+  }
 });

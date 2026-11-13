@@ -69,7 +69,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 ## Rules and levels
 
 - **Level equals cube dimension**. New cubes use about 1.6 surface lanes per dimension unit, rounded to a whole number with a minimum of four lanes: level 5 has an 8 × 8 lane grid on each face. Earlier saved boards retain their original grid.
-- Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension.
+- New games start at **5 × 5**. Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension. Saved games resume at their current dimension.
 - Each path is an arrow with a tail, bends, and a head. Paths can continue around cube edges onto other faces. They can move only in the direction indicated by their head.
 - New boards mix ordinary paths with long winding arrows of **3–75 cells**. Random turns, mixed directions, and edge crossings create dependency chains, so most arrows need another path cleared first. Small gaps are allowed.
 - Bold strokes and larger arrowheads improve visibility. The roomier grid and longer paths reduce the number of separate arrows to track.
@@ -93,7 +93,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 | Arrow keys while the cube is focused | Rotate |
 | H, then Enter while the cube is focused | Highlight, then release, a legal arrow |
 
-Arrow motion follows the device's reduced-motion preference by default. If clear arrows fade out or blocked arrows only change color, choose **Full animation** below the cube to restore the swoosh, collision, and rollback. This choice is saved with your progress. Opening `http://riva-laptop:5173/?motion=full` also selects and remembers full animation without replacing your board.
+Arrow motion defaults to **Full animation**, with swoosh, collision, and rollback movement. Choose **Follow device** to use the device's reduced-motion preference, or choose **Reduced motion** directly. Explicit choices are saved with your progress. Opening `http://riva-laptop:5173/?motion=full` also selects and remembers full animation without replacing your board.
 
 ## Why generated boards are solvable
 

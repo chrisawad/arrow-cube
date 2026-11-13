@@ -23,7 +23,7 @@ test('storage denial or a full quota does not crash play', () => {
   assert.equal(saveProgress(valid()), false);
 });
 
-test('motion choices persist and legacy or malformed choices follow the device', () => {
+test('motion choices persist and legacy or malformed choices use full animation', () => {
   let stored;
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   for (const motion of ['full', 'reduced', 'auto']) {
@@ -31,7 +31,7 @@ test('motion choices persist and legacy or malformed choices follow the device',
     assert.equal(loadProgress().motion, motion);
   }
   for (const motion of [undefined, null, false, {}, 'invalid']) {
-    assert.equal(normalizeProgress({ ...valid(), motion }).motion, 'auto');
+    assert.equal(normalizeProgress({ ...valid(), motion }).motion, 'full');
   }
 });
 test('duplicate removed IDs are normalized and an invalid best dimension is repaired', () => {
@@ -51,9 +51,9 @@ test('legacy saves retain their original generator, seed, dimension, and removed
   let stored = JSON.stringify(legacy);
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   const restored = loadProgress();
-  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], motion: 'auto' });
+  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], motion: 'full' });
   assert.equal(saveProgress(restored), true);
-  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], motion: 'auto' });
+  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], motion: 'full' });
 });
 test('current generator version round trips without changing the existing storage schema or key', () => {
   let stored;

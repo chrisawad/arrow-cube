@@ -126,7 +126,7 @@ function flyingMaterial(initialColor = INK) {
 }
 
 export class CubeView {
-  constructor(container, { onSelect = () => {}, onInteract = () => {}, motion = 'auto' } = {}) {
+  constructor(container, { onSelect = () => {}, onInteract = () => {}, motion = 'full' } = {}) {
     this.container = container;
     this.onSelect = onSelect;
     this.onInteract = onInteract;
@@ -210,8 +210,8 @@ export class CubeView {
     this.resize();
   }
 
-  setMotionMode(mode) {
-    this.motionMode = ['full', 'reduced'].includes(mode) ? mode : 'auto';
+  setMotionMode(mode = 'full') {
+    this.motionMode = ['auto', 'full', 'reduced'].includes(mode) ? mode : 'full';
     this.reducedMotion = this.motionMode === 'reduced'
       || (this.motionMode === 'auto' && this.motionPreference.matches);
     if (this.reducedMotion) this.velocity.x = this.velocity.y = 0;

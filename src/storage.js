@@ -29,7 +29,7 @@ export function normalizeProgress(value) {
   if (!Number.isSafeInteger(value.moves) || value.moves < 0 || value.moves > 100000000) return null;
   const bestSize = Number.isInteger(value.bestSize) && value.bestSize >= value.size && value.bestSize <= 64
     ? value.bestSize : value.size;
-  const motion = ['auto', 'full', 'reduced'].includes(value.motion) ? value.motion : 'auto';
+  const motion = ['auto', 'full', 'reduced'].includes(value.motion) ? value.motion : 'full';
   return { version: VERSION, generatorVersion, size: value.size, seed: value.seed, removed, blocked,
     moves: value.moves, sound: value.sound !== false, bestSize, motion };
 }
