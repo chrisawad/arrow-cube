@@ -1,5 +1,6 @@
-import { getBlockingArrow } from './engine.js';
+import { getBlockingArrow, getArrowMove } from './engine.js';
 import { directionBetween, getGridSize } from './cube-surface.js';
+import { orientArrow } from './arrow-orientation.js';
 
 // Shared with the canvas and mesh renderer, in grid-cell units.
 export const ARROW_SHAPE = Object.freeze({ radius: 0.095, tip: 0.32, base: 0.14, wing: 0.26, singletonStem: 0.4 });
@@ -17,15 +18,17 @@ export function arrowHead(head, direction, shape = ARROW_SHAPE) {
 
 export function arrowFragments(arrow, size) {
   const cells = arrow.cells.map(cell => ({ ...cell, face: cell.face ?? arrow.face }));
-  const fragments = [{ face: cells[0].face, points: [cells[0]], head: false }];
+  const fragments = [{ face: cells[0].face, points: [cells[0]], progress: [0], head: false }];
   for (let i = 1; i < cells.length; i++) {
     const previous = cells[i - 1], cell = cells[i];
     if (previous.face !== cell.face) {
       const out = directionBetween(previous, cell, size), back = directionBetween(cell, previous, size);
       fragments.at(-1).points.push({ x: previous.x + out.x * 0.5, y: previous.y + out.y * 0.5 });
-      fragments.push({ face: cell.face, points: [{ x: cell.x + back.x * 0.5, y: cell.y + back.y * 0.5 }], head: false });
+      fragments.at(-1).progress.push(i - 0.5);
+      fragments.push({ face: cell.face, points: [{ x: cell.x + back.x * 0.5, y: cell.y + back.y * 0.5 }], progress: [i - 0.5], head: false });
     }
     fragments.at(-1).points.push(cell);
+    fragments.at(-1).progress.push(i);
   }
   fragments.at(-1).head = true;
   return fragments;
@@ -55,12 +58,12 @@ function contactDistance(moving, fixed, direction) {
   return exit >= 0 ? enter : Infinity;
 }
 
-export function findArrowCollision(puzzle, arrow, removed = new Set()) {
-  const blockerId = getBlockingArrow(puzzle, arrow.id, removed);
-  if (blockerId === null) return null;
-  const blocker = puzzle.arrows.find(candidate => candidate.id === blockerId);
-  const shape = arrowShape(puzzle), radius = shape.radius, pieces = [];
-  const headFace = arrow.cells.at(-1).face ?? arrow.face;
+function obstaclePieces(blocker, headFace, puzzle, shape) {
+  const radius = shape.radius, pieces = [];
+  if (blocker.bidirectional && (blocker.cells[0].face ?? blocker.face) === headFace) {
+    const reverse = orientArrow(blocker, getGridSize(puzzle), true);
+    pieces.push(arrowHead(reverse.cells.at(-1), reverse.direction, shape));
+  }
   for (const fragment of arrowFragments(blocker, getGridSize(puzzle))) {
     if (fragment.face !== headFace) continue;
     if (fragment.head) pieces.push(arrowHead(blocker.cells.at(-1), blocker.direction, shape));
@@ -84,6 +87,30 @@ export function findArrowCollision(puzzle, arrow, removed = new Set()) {
       })));
     }
   }
+  return pieces;
+}
+
+export function findArrowCollision(puzzle, arrow, removed = new Set(), reverse = false) {
+  const shape = arrowShape(puzzle);
+  if (puzzle.generatorVersion >= 11 || puzzle.wrapEdges?.length || puzzle.redirectors?.length || arrow.bidirectional || reverse) {
+    const move = getArrowMove(puzzle, arrow.id, removed, reverse);
+    if (!move || move.canExit) return null;
+    const node = move.blockerNode ?? move.route.nodes.at(-1);
+    if (move.blockerId === arrow.id) return { blockerId: arrow.id, distance: Math.max(0, node.step - shape.tip - shape.radius) };
+    const blocker = puzzle.arrows.find(candidate => candidate.id === move.blockerId), direction = node.incoming;
+    const start = { x: node.x - direction.x, y: node.y - direction.y };
+    const moving = arrowHead(start, direction, shape);
+    const pieces = obstaclePieces(blocker, node.face, puzzle, shape);
+    let contact = Infinity;
+    for (const piece of pieces) contact = Math.min(contact, contactDistance(moving, piece, direction));
+    if (!Number.isFinite(contact)) contact = 1 - shape.tip - shape.radius;
+    return { blockerId: move.blockerId, distance: Math.max(0, node.step - 1 + Math.min(1, contact)) };
+  }
+  const blockerId = getBlockingArrow(puzzle, arrow.id, removed);
+  if (blockerId === null) return null;
+  const blocker = puzzle.arrows.find(candidate => candidate.id === blockerId);
+  const headFace = arrow.cells.at(-1).face ?? arrow.face;
+  const pieces = obstaclePieces(blocker, headFace, puzzle, shape);
   const head = arrow.cells.at(-1), direction = arrow.direction;
   const moving = arrowHead(head, direction, shape);
   let distance = Infinity;
@@ -95,10 +122,11 @@ export function findArrowCollision(puzzle, arrow, removed = new Set()) {
   return Number.isFinite(distance) ? { blockerId, distance: Math.max(0, distance) } : null;
 }
 
-export function bumpTimings(distance, reducedMotion = false) {
+export function bumpTimings(distance, reducedMotion = false, routed = false) {
   return reducedMotion
     ? { outbound: 80, hold: 150, rollback: 0 }
-    : { outbound: Math.min(210, Math.round(120 + distance * 15)), hold: 35, rollback: 95 };
+    : { outbound: Math.min(routed ? 900 : 210, Math.round(120 + distance * (routed ? 10 : 15))), hold: 35,
+      rollback: routed ? Math.min(220, 95 + Math.round(distance * 2)) : 95 };
 }
 
 export function sampleBumpMotion(elapsed, distance, timings, reducedMotion = false, previouslyBlocked = false) {

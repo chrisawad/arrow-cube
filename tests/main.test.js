@@ -45,7 +45,7 @@ class Element {
   remove() { this.removed = true; }
 }
 
-function boot(saved = null, { search = '' } = {}) {
+function boot(saved = null, { search = '', puzzleFactory = generatePuzzle } = {}) {
   const ids = [...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]);
   const elements = new Map(ids.map(id => [id, new Element()]));
   const presets = [3, 5, 8, 12].map(size => Object.assign(new Element(), { dataset: { size: String(size) } }));
@@ -76,14 +76,14 @@ function boot(saved = null, { search = '' } = {}) {
     }
     resetView() {}
     clearHighlight() { this.highlighted = null; }
-    highlight(id) { this.highlighted = id; }
+    highlight(id, type, reverse = false) { this.highlighted = id; this.highlightReverse = reverse; }
     focusFace() {}
     rotateBy() {}
-    animate(id, type, onImpact = () => {}) {
-      return new Promise(resolve => this.animations.push({ id, type, resolve, onImpact }));
+    animate(id, type, onImpact = () => {}, reverse = false) {
+      return new Promise(resolve => this.animations.push({ id, type, resolve, onImpact, reverse }));
     }
-    bumpArrow(id, { onImpact }) { return this.animate(id, 'bump', onImpact); }
-    removeArrow(id) { return this.animate(id, 'remove'); }
+    bumpArrow(id, { onImpact, reverse }) { return this.animate(id, 'bump', onImpact, reverse); }
+    removeArrow(id, { reverse } = {}) { return this.animate(id, 'remove', undefined, reverse); }
   }
   class Audio {
     setEnabled() {}
@@ -94,7 +94,7 @@ function boot(saved = null, { search = '' } = {}) {
   }
   let nextSeed = 8137;
   vm.runInNewContext(source, {
-    document, window, URL, URLSearchParams, generatePuzzle, canRemove, getRemovable, GENERATOR_VERSION,
+    document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, GENERATOR_VERSION,
     CubeView: View, GameAudio: Audio, loadProgress: () => saved,
     saveProgress: progress => { saves.push(structuredClone(progress)); return true; },
     setupInstall: () => {}, matchMedia: () => ({ matches: false }),
@@ -289,4 +289,34 @@ test('new games start at five with full animation while saved levels and explici
     assert.equal(restored.state().size, 3);
     assert.equal(restored.view.options.motion, motion);
   }
+});
+
+const twoEndedFixture = (size, seed) => ({ size, seed, gridSize: 4, generatorVersion: 11, wrapEdges: [], redirectors: [],
+  arrows: [
+    { id: 0, face: 0, direction: { x: 1, y: 0 }, bidirectional: true, cells: [0, 1, 2].map(x => ({ face: 0, x, y: 1 })) },
+    { id: 1, face: 0, direction: { x: 0, y: 1 }, cells: [0, 1, 2].map(y => ({ face: 0, x: 3, y })) },
+  ] });
+
+test('the clicked half reaches collision or removal and keeps one saved arrow identity', async () => {
+  const h = boot(null, { puzzleFactory: twoEndedFixture });
+  const blocked = h.view.options.onSelect(0, false), bump = h.view.animations.at(-1);
+  assert.equal(bump.type, 'bump'); assert.equal(bump.reverse, false);
+  bump.onImpact(); bump.resolve(true); await blocked;
+  assert.deepEqual(h.state().blocked, [0]); assert.equal(h.sounds.blocked, 1); assert.equal(h.sounds.swoosh, 0);
+  const leaving = h.view.options.onSelect(0, true), removal = h.view.animations.at(-1);
+  assert.equal(removal.type, 'remove'); assert.equal(removal.reverse, true);
+  removal.resolve(true); await leaving;
+  assert.deepEqual(h.saves.at(-1).removed, [0]); assert.deepEqual(h.saves.at(-1).blocked, []);
+  assert.equal(h.state().moves, 1); assert.equal(h.sounds.swoosh, 1);
+});
+
+test('keyboard hints preserve a reverse-only escape direction', async () => {
+  const h = boot(null, { puzzleFactory: twoEndedFixture });
+  h.get('hint').click();
+  assert.equal(h.view.highlighted, 0); assert.equal(h.view.highlightReverse, true);
+  h.get('cube-stage').emit('keydown', { key: 'Enter' });
+  const animation = h.view.animations.at(-1);
+  assert.equal(animation.type, 'remove'); assert.equal(animation.reverse, true);
+  animation.resolve(true); await Promise.resolve();
+  assert.deepEqual(h.state().removed, [0]);
 });

@@ -70,12 +70,14 @@ docker run --rm -p 8080:8080 arrow-cube:local
 
 - **Level equals cube dimension**. New cubes use about 1.6 surface lanes per dimension unit, rounded to a whole number with a minimum of four lanes: level 5 has an 8 × 8 lane grid on each face. Earlier saved boards retain their original grid.
 - New games start at **5 × 5**. Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension. Saved games resume at their current dimension.
-- Each path is an arrow with a tail, bends, and a head. Paths can continue around cube edges onto other faces. They can move only in the direction indicated by their head.
+- Ordinary paths have one arrowhead. Green-to-yellow paths have two: clicking the green half leads with the green end; clicking the yellow half leads with the yellow end. The split follows distance along the line, including bends and face crossings.
+- **Yellow edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there.
+- **Light-blue double chevrons** are fixed cell markers. When a moving line's leading tip reaches one, it turns in the marked direction. Lines keep moving through any number of edges and redirectors until they hit an obstacle or leave an unmarked edge.
 - New boards mix ordinary paths with long winding arrows of **3–75 cells**. Random turns, mixed directions, and edge crossings create dependency chains, so most arrows need another path cleared first. Small gaps are allowed.
 - Bold strokes and larger arrowheads improve visibility. The roomier grid and longer paths reduce the number of separate arrows to track.
-- An arrow is removable only when the straight corridor ahead of its head is clear. Its tail follows the wrapped path as its head leaves the edge of its current face.
+- A chosen endpoint is removable only when its complete routed exit is clear, including other faces. Its tail follows the same bends, redirectors, and creases. Hints choose an available endpoint; keyboard Enter uses that same direction.
 - The cube is translucent: near-face paths are black and far-face paths show through as pale silhouettes. Rotate to interact with a far face.
-- An arrow's first blocked attempt moves forward in black, turns red with a short tick on contact, and quickly slides back. It stays red afterward, including after reloading. Hints temporarily highlight it in purple; restarting or choosing a new board clears the red marks. A collision does not remove any arrows or increment the move count. There is no move limit or failure timer.
+- A line's first blocked attempt keeps its original color until contact, turns red with only a short tick, and quickly slides back along its route. It stays red afterward, including after reloading. Successful exits play a swoosh. Hints temporarily highlight the selected endpoint in purple; restarting or choosing a new board clears red marks. A collision does not remove any arrows or increment the move count. There is no move limit or failure timer.
 - Clear all arrows to unlock the next dimension. At dimension 64, completing a board offers another newly generated 64 × 64 puzzle.
 
 ## Controls
@@ -85,6 +87,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 | Drag with mouse or one finger | Smoothly rotate the cube |
 | Mouse wheel or two-finger pinch | Zoom |
 | Click or tap a path | Release it if its exit is clear |
+| Tap either half of a green/yellow path | Choose the corresponding endpoint as the leading head |
 | Hint | Rotate to and highlight a removable arrow |
 | Reset view | Restore the starting view |
 | Restart | Restore the same puzzle and seed |
@@ -97,11 +100,13 @@ Arrow motion defaults to **Full animation**, with swoosh, collision, and rollbac
 
 ## Why generated boards are solvable
 
-`src/engine.js` carves random paths over all six faces in removal order. Each chosen head has a clear ray to its face edge, and its tail grows through adjacent, still-occupied cells, favoring turns and crossings over cube edges. This produces mixed directions throughout each face without a fixed row-by-row pattern.
+Version 11 builds the yellow edges and blue redirectors first. `src/feature-generator.js` then maintains a visibility frontier over the real flow field: a head can be selected only when its entire route through all redirects and creases is already empty and reaches an unmarked edge. Its tail grows only through still-occupied cells. The resulting carve order is a certified removal sequence. Closed flow loops are detected and never selected as exits.
 
-A bounded search helps tails reach longer target lengths without getting stuck at the first dead end. Short pieces and some complete later paths are absorbed into adjacent earlier tails, mixing ordinary lengths with much longer arrows. Any pieces below three cells that cannot be joined become gaps. Joining pieces only moves cells earlier in the removal order, and leaving gaps only removes obstacles, preserving the solution. Removing another legal arrow early cannot create a deadlock: removing paths only removes obstacles. The seed determines the board, and the engine exposes the solution for testing rather than requiring a runtime search solver.
+A bounded search grows winding tails. Short pieces and later paths can join earlier tails up to the 75-cell limit; sub-three-cell leftovers become gaps. Heads that exercise a routing feature are retained. Green/yellow paths are selected from lines whose reverse endpoint can also eventually escape without hitting their own moving body. The generator reserves a useful approach to a redirector and has a deterministic routing layout for difficult seeds, ensuring every new puzzle contains and actually uses all three mechanics.
 
-Tests check cell bounds, adjacency, direction, non-overlap, determinism, generation diversity, and successful removal sequences across multiple seeds and dimensions. Storage tests cover saved-state restoration, corrupt input, and unavailable storage.
+`src/routing.js` traces the same route for game rules, collision feedback, hints, and animation. Features stay fixed as lines are removed. Any legal removal only deletes blockers, so taking legal paths in a different order cannot create a deadlock. The seed recreates the features and geometry exactly; `solutionMoves` records endpoint choices alongside the legacy `solution` ID list.
+
+Tests cover chained redirects and yellow edges, either-end selection across faces, collision/rollback animation, full solution replays and arbitrary endpoint orders, geometry and density through dimension 64, deterministic seeds, and storage restoration. Existing generator versions 1–10 retain their exact seed mappings.
 
 ## Saved progress
 

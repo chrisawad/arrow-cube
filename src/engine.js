@@ -1,10 +1,13 @@
 import { neighbor, getGridSize, getGridSizeForVersion, FACE_BASIS, directionBetween } from './cube-surface.js';
+import { orientArrow } from './arrow-orientation.js';
+import { traceExitRoute, surfaceCellKey } from './routing.js';
+import { buildFeaturePuzzle } from './feature-generator.js';
 
 /** Deterministic, solvable puzzles covering the surface of a cube. */
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 64;
 // Persist this with a saved board: seed mappings are stable within a version.
-export const GENERATOR_VERSION = 10;
+export const GENERATOR_VERSION = 11;
 const DIRECTIONS = [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }];
 const indexes = new WeakMap();
 
@@ -56,7 +59,8 @@ export function generatePuzzle(size, seed = Date.now(), generatorVersion = GENER
   if (!Number.isInteger(size) || size < MIN_SIZE || size > MAX_SIZE) {
     throw new RangeError(`Cube dimensions must be an integer from ${MIN_SIZE} to ${MAX_SIZE}.`);
   }
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
+  if (generatorVersion === 11) return generateSpecialPuzzle(size, seed);
   if (generatorVersion >= 7) return generateExtendedPuzzle(size, seed, generatorVersion);
   if (generatorVersion >= 5) return generateRandomPuzzle(size, seed, generatorVersion);
   if (generatorVersion === 4) return generateLongPuzzle(size, seed);
@@ -538,6 +542,68 @@ function generateExtendedPuzzle(size, seed, generatorVersion) {
   return { size, gridSize, seed, generatorVersion, arrows, solution: arrows.map(arrow => arrow.id) };
 }
 
+function shuffled(values, random) {
+  const result = [...values];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/** Removing a line only deletes blockers, so every legal play order is safe. */
+function certifySpecialPuzzle(puzzle) {
+  const removed = new Set(), moves = [], records = [];
+  for (const arrow of puzzle.arrows) {
+    const choices = [routeInfo(puzzle, arrow, false)];
+    if (arrow.bidirectional) choices.push(routeInfo(puzzle, arrow, true));
+    if (choices.some(info => info.route.loop)) return null;
+    records.push({ arrow, choices });
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { arrow, choices } of records) {
+      if (removed.has(arrow.id)) continue;
+      const choice = choices.findIndex(info => !info.selfBlocked && !info.route.loop
+        && [...info.dependencies].every(id => removed.has(id)));
+      if (choice < 0) continue;
+      removed.add(arrow.id); moves.push({ id: arrow.id, reverse: choice === 1 }); changed = true;
+    }
+  }
+  if (removed.size !== puzzle.arrows.length) return null;
+  const edges = new Set(), markers = new Set();
+  for (const move of moves) {
+    const route = routeInfo(puzzle, indexPuzzle(puzzle).arrows.get(move.id), move.reverse).route;
+    for (const transition of route.transitions) edges.add(transition.edge);
+    for (const turn of route.turns) markers.add(turn.id);
+  }
+  return { moves, removed, edges, markers };
+}
+
+function finishSpecialPuzzle(puzzle, certificate) {
+  return { ...puzzle, solution: certificate.moves.map(move => move.id), solutionMoves: certificate.moves };
+}
+
+/** Feature-first carving keeps all routes provable without repeated repair passes. */
+function generateSpecialPuzzle(size, seed) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let puzzle = buildFeaturePuzzle(size, seed, seededRandom, attempt);
+    const random = seededRandom(String(seed) + ':two-ends:' + attempt);
+    const eligible = puzzle.arrows.filter(arrow => {
+      const info = routeInfo(puzzle, arrow, true);
+      return !info.selfBlocked && !info.route.loop;
+    });
+    const doubles = new Set(shuffled(eligible, random).slice(0, Math.max(1, Math.round(puzzle.arrows.length * 0.24))).map(arrow => arrow.id));
+    puzzle = { ...puzzle, arrows: puzzle.arrows.map(arrow => doubles.has(arrow.id) ? { ...arrow, bidirectional: true } : arrow) };
+    const certificate = certifySpecialPuzzle(puzzle);
+    if (!certificate) throw new Error('Feature carving produced an uncertified puzzle');
+    const result = finishSpecialPuzzle(puzzle, certificate);
+    if (certificate.edges.size && certificate.markers.size && doubles.size) return result;
+  }
+  throw new Error('Could not create a useful mix of surface mechanics for this seed');
+}
+
 function indexPuzzle(puzzle) {
   let index = indexes.get(puzzle);
   if (index) return index;
@@ -548,14 +614,15 @@ function indexPuzzle(puzzle) {
     arrows.set(arrow.id, arrow);
     for (const cell of arrow.cells) cells.set(cellKey(cell.face ?? arrow.face, cell.x, cell.y, gridSize), arrow.id);
   }
-  index = { cells, arrows };
+  index = { cells, arrows, routes: new Map(), special: Boolean(puzzle.wrapEdges?.length || puzzle.redirectors?.length || puzzle.arrows.some(arrow => arrow.bidirectional)) };
   indexes.set(puzzle, index);
   return index;
 }
 
 /** Return the first obstructing arrow ID, or null if the exit ray is clear. */
-export function getBlockingArrow(puzzle, id, removed = new Set()) {
+export function getBlockingArrow(puzzle, id, removed = new Set(), reverse = false) {
   const index = indexPuzzle(puzzle);
+  if (index.special) return getArrowMove(puzzle, id, removed, reverse)?.blockerId ?? null;
   const arrow = index.arrows.get(id);
   if (!arrow || removed.has(id)) return null;
   const head = arrow.cells.at(-1);
@@ -571,10 +638,56 @@ export function getBlockingArrow(puzzle, id, removed = new Set()) {
   return null;
 }
 
-export function canRemove(puzzle, id, removed = new Set()) {
-  return !removed.has(id) && indexPuzzle(puzzle).arrows.has(id) && getBlockingArrow(puzzle, id, removed) === null;
+export function canRemove(puzzle, id, removed = new Set(), reverse) {
+  const index = indexPuzzle(puzzle), arrow = index.arrows.get(id);
+  if (removed.has(id) || !arrow || (reverse && !arrow.bidirectional)) return false;
+  if (!index.special) return getBlockingArrow(puzzle, id, removed) === null;
+  if (reverse !== undefined) return Boolean(getArrowMove(puzzle, id, removed, reverse)?.canExit);
+  return getArrowMove(puzzle, id, removed, false).canExit
+    || Boolean(arrow.bidirectional && getArrowMove(puzzle, id, removed, true).canExit);
 }
 
 export function getRemovable(puzzle, removed = new Set()) {
-  return puzzle.arrows.filter(arrow => canRemove(puzzle, arrow.id, removed));
+  const result = [];
+  for (const arrow of puzzle.arrows) {
+    if (removed.has(arrow.id)) continue;
+    if (canRemove(puzzle, arrow.id, removed, false)) result.push(arrow);
+    else if (arrow.bidirectional && canRemove(puzzle, arrow.id, removed, true)) {
+      result.push({ ...orientArrow(arrow, getGridSize(puzzle), true), reverse: true });
+    }
+  }
+  return result;
+}
+
+/** Cached routes and swept self-occupancy for both endpoints of a line. */
+function routeInfo(puzzle, arrow, reverse) {
+  const index = indexPuzzle(puzzle), key = `${arrow.id}:${reverse ? 1 : 0}`;
+  if (index.routes.has(key)) return index.routes.get(key);
+  const size = getGridSize(puzzle), moving = orientArrow(arrow, size, reverse);
+  const route = traceExitRoute(puzzle, arrow, reverse), length = moving.cells.length - 1;
+  const trail = new Map(moving.cells.map((cell, i) => [surfaceCellKey({ ...cell, face: cell.face ?? moving.face }, size), i - length]));
+  const obstacles = [], dependencies = new Set();
+  let selfBlocked = false;
+  for (const node of route.nodes.slice(1)) {
+    const cell = surfaceCellKey(node, size), lastVisit = trail.get(cell);
+    if (lastVisit !== undefined && node.step - lastVisit <= length) {
+      obstacles.push({ id: arrow.id, node }); selfBlocked = true; break;
+    }
+    trail.set(cell, node.step);
+    const owner = index.cells.get(cell);
+    if (owner !== undefined && owner !== arrow.id) { obstacles.push({ id: owner, node }); dependencies.add(owner); }
+  }
+  const result = { arrow: moving, route, obstacles, dependencies, selfBlocked };
+  index.routes.set(key, result);
+  return result;
+}
+
+/** A direction-specific move, shared by certification, hints, and animation. */
+export function getArrowMove(puzzle, id, removed = new Set(), reverse = false) {
+  const index = indexPuzzle(puzzle), arrow = index.arrows.get(id);
+  if (!arrow || removed.has(id) || (reverse && !arrow.bidirectional)) return null;
+  const info = routeInfo(puzzle, arrow, reverse);
+  const obstacle = info.obstacles.find(item => !removed.has(item.id));
+  return { ...info, reverse, blockerId: obstacle?.id ?? (info.route.loop ? id : null),
+    blockerNode: obstacle?.node ?? null, canExit: !obstacle && !info.route.loop };
 }

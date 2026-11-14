@@ -257,6 +257,17 @@ test('cube topology has reciprocal steps and matching physical crease points', (
   }
 });
 
+test('version 10 regenerates saved 75-cell boards byte-for-byte', () => {
+  for (const [size, seed, expected] of [
+    [3, 1234, 'e6d019cb76acc71c4922dea25a689fd87eeb8a07582651c6cb1fdce627fa8c31'],
+    [8, 'saved-game-42', '0c9384e6f5afad482c253dacf07cf6c2da547da43ea9ef955c4906052b27bfff'],
+    [12, 7, '239076303783cd330f3c15ea19f2d15fe9c32702b437b90184b0e227aa58d4ec'],
+  ]) {
+    const puzzle = generatePuzzle(size, seed, 10);
+    assert.equal(createHash('sha256').update(JSON.stringify({ arrows: puzzle.arrows, solution: puzzle.solution })).digest('hex'), expected);
+  }
+});
+
 test('wrapped boards fill doubled surface grids and preserve certified solutions', () => {
   for (const size of [2, 3, 5, 6, 8, 12, 24, 64]) {
     for (let seed = 0; seed < (size <= 12 ? 24 : 3); seed++) {

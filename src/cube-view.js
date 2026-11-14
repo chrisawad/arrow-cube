@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { arrowShape, arrowFragments, arrowHead, findArrowCollision, bumpTimings, sampleBumpMotion } from './arrow-motion.js';
 import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.js';
+import { orientArrow, reverseAtProgress } from './arrow-orientation.js';
+import { traceExitRoute } from './routing.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
 // top-left grid origin; the plane UV conversion below shares that convention.
@@ -13,12 +15,62 @@ const INITIAL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.40, -0.55,
 const INK = '#15191f';
 const HINT = '#5b55e7';
 const BLOCKED = '#e16457';
+const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef';
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 function distanceToSegment(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+
+function segmentFraction(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  return clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+}
+
+function pathColor(progress) {
+  const a = [55, 180, 135], b = [241, 198, 67], t = clamp(progress, 0, 1);
+  return `rgb(${a.map((value, i) => Math.round(value + (b[i] - value) * t)).join(',')})`;
+}
+
+function paintHead(ctx, point, direction, color, unit, shape) {
+  const [tip, left, right] = arrowHead(point, direction, shape);
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(tip.x * unit, tip.y * unit); ctx.lineTo(left.x * unit, left.y * unit); ctx.lineTo(right.x * unit, right.y * unit);
+  ctx.closePath(); ctx.fill();
+}
+
+function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintReverse) {
+  const points = fragment.points.map(point => ({ x: point.x + 0.5, y: point.y + 0.5 }));
+  const colored = color === INK, length = arrow.cells.length - 1;
+  for (let i = 1; i < points.length; i++) {
+    let stroke = color;
+    if (colored) {
+      stroke = ctx.createLinearGradient(points[i - 1].x * unit, points[i - 1].y * unit, points[i].x * unit, points[i].y * unit);
+      stroke.addColorStop(0, pathColor(fragment.progress[i - 1] / length));
+      stroke.addColorStop(1, pathColor(fragment.progress[i] / length));
+    }
+    paintArrow(ctx, [points[i - 1], points[i]], arrow.direction, stroke, unit, shape, false);
+  }
+  if (fragment.progress[0] === 0) {
+    const tailColor = colored ? GREEN : hintReverse === false ? '#a6bac6' : color;
+    paintHead(ctx, points[0], orientArrow(arrow, size, true).direction, tailColor, unit, shape);
+  }
+  if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? GOLD : hintReverse === true ? '#a6bac6' : color, unit, shape);
+}
+
+function paintRedirector(ctx, marker, unit) {
+  const d = marker.direction, side = { x: -d.y, y: d.x }, center = { x: marker.x + 0.5, y: marker.y + 0.5 };
+  ctx.strokeStyle = BLUE; ctx.lineWidth = unit * 0.12; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const offset of [-0.19, 0.17]) {
+    const tip = { x: center.x + d.x * (offset + 0.13), y: center.y + d.y * (offset + 0.13) };
+    ctx.beginPath();
+    ctx.moveTo((tip.x - d.x * 0.24 + side.x * 0.22) * unit, (tip.y - d.y * 0.24 + side.y * 0.22) * unit);
+    ctx.lineTo(tip.x * unit, tip.y * unit);
+    ctx.lineTo((tip.x - d.x * 0.24 - side.x * 0.22) * unit, (tip.y - d.y * 0.24 - side.y * 0.22) * unit);
+    ctx.stroke();
+  }
 }
 
 function paintArrow(ctx, points, direction, color, unit, shape, hasHead = true) {
@@ -50,7 +102,7 @@ const faceNormal = face => new THREE.Vector3(...FACE_BASIS[face].normal);
 
 // Distances remain in grid cells. A crease is represented twice, once with each
 // face normal, so a ribbon bends over the edge without cutting through the cube.
-export function surfaceTrack(arrow, puzzle) {
+export function surfaceTrack(arrow, puzzle, route = null) {
   const size = getGridSize(puzzle), scale = 1.024, shape = arrowShape(puzzle);
   const cells = arrow.cells.map(cell => ({ ...cell, face: cell.face ?? arrow.face }));
   const nodes = [];
@@ -62,30 +114,59 @@ export function surfaceTrack(arrow, puzzle) {
     }
     nodes.push({ point: vector(cellToWorld(cell, size)).multiplyScalar(scale), normal: faceNormal(cell.face), s: index });
   });
-  const basis = FACE_BASIS[cells.at(-1).face];
-  const direction = new THREE.Vector3(...basis.u).multiplyScalar(arrow.direction.x)
-    .addScaledVector(new THREE.Vector3(...basis.v), arrow.direction.y);
+  if (route) {
+    let previous = cells.at(-1);
+    for (const cell of route.nodes.slice(1)) {
+      const s = cells.length - 1 + cell.step;
+      if (cell.face !== previous.face) {
+        const point = vector(seamPoint(previous, cell, size)).multiplyScalar(scale);
+        nodes.push({ point, normal: faceNormal(previous.face), s: s - 0.5 });
+        nodes.push({ point: point.clone(), normal: faceNormal(cell.face), s: s - 0.5 });
+      }
+      nodes.push({ point: vector(cellToWorld(cell, size)).multiplyScalar(scale), normal: faceNormal(cell.face), s });
+      previous = cell;
+    }
+    if (route.exit) {
+      const { cell, direction } = route.exit;
+      const edge = { face: cell.face, x: cell.x + direction.x * 0.5, y: cell.y + direction.y * 0.5 };
+      nodes.push({ point: vector(cellToWorld(edge, size)).multiplyScalar(scale), normal: faceNormal(cell.face), s: cells.length - 1 + route.distance });
+    }
+  }
+  const finalFace = route?.exit?.face ?? route?.nodes.at(-1).face ?? cells.at(-1).face;
+  const finalDirection = route?.exit?.direction ?? route?.nodes.at(-1).direction ?? arrow.direction;
+  const basis = FACE_BASIS[finalFace];
+  const direction = new THREE.Vector3(...basis.u).multiplyScalar(finalDirection.x)
+    .addScaledVector(new THREE.Vector3(...basis.v), finalDirection.y);
   const unit = 2 * scale / size;
   if (cells.length === 1) nodes.unshift({ point: nodes[0].point.clone().addScaledVector(direction, -shape.singletonStem * unit),
     normal: nodes[0].normal.clone(), s: -shape.singletonStem });
-  return { nodes, unit, direction, length: Math.max(shape.singletonStem, cells.length - 1), head: cells.length - 1 };
+  return { nodes, unit, direction, length: Math.max(shape.singletonStem, cells.length - 1), head: cells.length - 1,
+    surfaceDistance: route?.distance ?? 0, bidirectional: Boolean(arrow.bidirectional) };
 }
 
 export function sampleSurfaceTrack(track, s) {
   const last = track.nodes.at(-1);
-  if (s >= last.s) return { point: last.point.clone().addScaledVector(track.direction, (s - last.s) * track.unit), normal: last.normal.clone(), s };
-  let index = 0;
-  while (index < track.nodes.length - 2 && track.nodes[index + 1].s <= s) index++;
+  if (s >= last.s) return { point: last.point.clone().addScaledVector(track.direction, (s - last.s) * track.unit), normal: last.normal.clone(), direction: track.direction.clone(), s };
+  let low = 0, high = track.nodes.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (track.nodes[middle].s <= s) low = middle; else high = middle - 1;
+  }
+  const index = Math.min(low, track.nodes.length - 2);
   const a = track.nodes[index], b = track.nodes[index + 1];
-  return { point: a.point.clone().lerp(b.point, (s - a.s) / (b.s - a.s)), normal: a.normal.clone(), s };
+  return { point: a.point.clone().lerp(b.point, (s - a.s) / (b.s - a.s)), normal: a.normal.clone(),
+    direction: b.point.clone().sub(a.point).normalize(), s };
 }
 
 function ribbonGeometry(track, distance, shape) {
   const start = track.head + distance - track.length, end = track.head + distance;
   const points = [sampleSurfaceTrack(track, start), ...track.nodes.filter(node => node.s > start && node.s < end), sampleSurfaceTrack(track, end)];
-  const positions = [], normals = [];
-  const triangle = (a, b, c, normal) => {
-    for (const p of [a, b, c]) { positions.push(p.x, p.y, p.z); normals.push(normal.x, normal.y, normal.z); }
+  const positions = [], normals = [], progress = [];
+  const triangle = (a, b, c, normal, coordinates) => {
+    for (const [i, p] of [a, b, c].entries()) {
+      positions.push(p.x, p.y, p.z); normals.push(normal.x, normal.y, normal.z);
+      progress.push(clamp((coordinates[i] - start) / track.length, 0, 1));
+    }
   };
   const radius = shape.radius * track.unit;
   for (let i = 1; i < points.length; i++) {
@@ -94,31 +175,46 @@ function ribbonGeometry(track, distance, shape) {
     const side = a.normal.clone().cross(tangent.normalize()).multiplyScalar(radius);
     const a1 = a.point.clone().add(side), a2 = a.point.clone().sub(side);
     const b1 = b.point.clone().add(side), b2 = b.point.clone().sub(side);
-    triangle(a1, a2, b1, a.normal); triangle(a2, b2, b1, a.normal);
+    triangle(a1, a2, b1, a.normal, [a.s, a.s, b.s]); triangle(a2, b2, b1, a.normal, [a.s, b.s, b.s]);
   }
   for (const node of points) {
     const reference = Math.abs(node.normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
     const u = node.normal.clone().cross(reference).normalize(), v = node.normal.clone().cross(u);
     const around = angle => node.point.clone().addScaledVector(u, Math.cos(angle) * radius).addScaledVector(v, Math.sin(angle) * radius);
-    for (let i = 0; i < 12; i++) triangle(node.point, around(i * Math.PI / 6), around((i + 1) * Math.PI / 6), node.normal);
+    for (let i = 0; i < 12; i++) triangle(node.point, around(i * Math.PI / 6), around((i + 1) * Math.PI / 6), node.normal, [node.s, node.s, node.s]);
   }
-  const head = points.at(-1), direction = track.direction, side = head.normal.clone().cross(direction);
-  const tip = head.point.clone().addScaledVector(direction, shape.tip * track.unit);
-  const base = head.point.clone().addScaledVector(direction, -shape.base * track.unit);
-  triangle(tip, base.clone().addScaledVector(side, shape.wing * track.unit), base.clone().addScaledVector(side, -shape.wing * track.unit), head.normal);
+  function headAt(center, sign) {
+    const first = center - sign * shape.base, last = center + sign * shape.tip;
+    const boundaries = [first, ...track.nodes.map(node => node.s).filter(s => s > Math.min(first, last) && s < Math.max(first, last)), last].sort((a, b) => sign * (a - b));
+    for (let i = 1; i < boundaries.length; i++) {
+      const from = boundaries[i - 1], to = boundaries[i];
+      if (from === to) continue;
+      const frame = sampleSurfaceTrack(track, (from + to) / 2), side = frame.normal.clone().cross(frame.direction).multiplyScalar(sign);
+      const a = sampleSurfaceTrack(track, from).point, b = sampleSurfaceTrack(track, to).point;
+      const width = s => shape.wing * (shape.tip - sign * (s - center)) / (shape.tip + shape.base) * track.unit;
+      const a1 = a.clone().addScaledVector(side, width(from)), a2 = a.clone().addScaledVector(side, -width(from));
+      const b1 = b.clone().addScaledVector(side, width(to)), b2 = b.clone().addScaledVector(side, -width(to));
+      triangle(a1, a2, b1, frame.normal, [center, center, center]);
+      triangle(a2, b2, b1, frame.normal, [center, center, center]);
+    }
+  }
+  headAt(end, 1);
+  if (track.bidirectional) headAt(start, -1);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('pathProgress', new THREE.Float32BufferAttribute(progress, 1));
   geometry.computeBoundingSphere();
   return geometry;
 }
 
-function flyingMaterial(initialColor = INK) {
+function flyingMaterial(initialColor = INK, arrow = null, reverse = false) {
   const color = new THREE.Color(initialColor);
   const material = new THREE.ShaderMaterial({
-    uniforms: { ink: { value: color }, opacity: { value: 1 } },
-    vertexShader: 'varying vec3 faceNormal; varying vec3 viewDirection; void main(){ vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
-    fragmentShader: 'uniform vec3 ink; uniform float opacity; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); gl_FragColor=vec4(mix(vec3(1.0),ink,nearFace),opacity);\n#include <colorspace_fragment>\n}',
+    uniforms: { ink: { value: color }, opacity: { value: 1 }, colored: { value: arrow?.bidirectional && initialColor === INK ? 1 : 0 },
+      tailInk: { value: new THREE.Color(reverse ? GOLD : GREEN) }, headInk: { value: new THREE.Color(reverse ? GREEN : GOLD) } },
+    vertexShader: 'attribute float pathProgress; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ lineProgress=pathProgress; vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
+    fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); vec3 lineInk=mix(ink,mix(tailInk,headInk,lineProgress),colored); gl_FragColor=vec4(mix(vec3(1.0),lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
     side: THREE.DoubleSide, transparent: true, depthWrite: true,
   });
   material.color = color;
@@ -245,6 +341,7 @@ export class CubeView {
     this.blocked = new Set([...blockedSet].filter(id => this.arrowById.has(id)));
     this.fragmentsById = new Map(puzzle.arrows.map(a => [a.id, arrowFragments(a, getGridSize(puzzle))]));
     this.arrowsByFace = this.faces.map((_, face) => puzzle.arrows.filter(a => this.fragmentsById.get(a.id).some(fragment => fragment.face === face)));
+    this.setFeatureEdges(puzzle.wrapEdges || []);
     this.highlighted = null;
     clearTimeout(this.highlightTimer);
     const resolution = Math.min(2048, Math.max(768, getGridSize(puzzle) * 64));
@@ -266,6 +363,25 @@ export class CubeView {
     this.schedule();
   }
 
+  setFeatureEdges(edges) {
+    if (this.featureEdges) {
+      for (const mesh of this.featureEdges.children) { mesh.geometry.dispose(); mesh.material.dispose(); }
+      this.cube.remove(this.featureEdges); this.featureEdges = null;
+    }
+    if (!edges.length) return;
+    this.featureEdges = new THREE.Group();
+    for (const [a, b] of edges) {
+      const fixed = FACE_BASIS[a].normal.map((value, i) => value + FACE_BASIS[b].normal[i]);
+      const start = new THREE.Vector3(...fixed.map(value => value || -1)).multiplyScalar(1.028);
+      const end = new THREE.Vector3(...fixed.map(value => value || 1)).multiplyScalar(1.028);
+      const geometry = new THREE.TubeGeometry(new THREE.LineCurve3(start, end), 1, 0.012, 6, false);
+      const material = new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.97, depthWrite: false });
+      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 5;
+      this.featureEdges.add(mesh);
+    }
+    this.cube.add(this.featureEdges);
+  }
+
   drawFaces(onlyFace = null) {
     if (!this.puzzle) return;
     const size = getGridSize(this.puzzle), shape = arrowShape(this.puzzle);
@@ -273,13 +389,17 @@ export class CubeView {
       if (onlyFace !== null && index !== onlyFace) return;
       const { ctx, canvas, texture } = face, unit = canvas.width / size;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const marker of this.puzzle.redirectors || []) if (marker.face === index) paintRedirector(ctx, marker, unit);
       for (const arrow of this.arrowsByFace[index]) {
         if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
         const color = this.highlighted?.id === arrow.id ? (this.highlighted.type === 'blocked' ? BLOCKED : HINT)
           : this.blocked.has(arrow.id) ? BLOCKED : INK;
         for (const fragment of this.fragmentsById.get(arrow.id)) {
           if (fragment.face !== index) continue;
-          paintArrow(ctx, fragment.points.map(p => ({ x: p.x + 0.5, y: p.y + 0.5 })), arrow.direction, color, unit, shape, fragment.head);
+          if (arrow.bidirectional) {
+            const hinted = this.highlighted?.id === arrow.id && this.highlighted.type === 'hint';
+            paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hinted ? Boolean(this.highlighted.reverse) : undefined);
+          } else paintArrow(ctx, fragment.points.map(p => ({ x: p.x + 0.5, y: p.y + 0.5 })), arrow.direction, color, unit, shape, fragment.head);
         }
       }
       texture.needsUpdate = true;
@@ -288,6 +408,10 @@ export class CubeView {
   }
 
   pick(clientX, clientY) {
+    return this.pickMove(clientX, clientY)?.id ?? null;
+  }
+
+  pickMove(clientX, clientY) {
     if (!this.puzzle) return null;
     const rect = this.canvas.getBoundingClientRect();
     const mouse = new THREE.Vector2((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1);
@@ -300,24 +424,33 @@ export class CubeView {
     let best = null, bestDistance = Math.max(0.34, shape.wing + 0.04);
     for (const arrow of this.arrowsByFace[hit.object.userData.face]) {
       if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
-      let distance = Infinity;
+      const consider = (distance, progress) => {
+        if (distance < bestDistance) { bestDistance = distance; best = { id: arrow.id, reverse: reverseAtProgress(arrow, progress) }; }
+      };
       for (const fragment of this.fragmentsById.get(arrow.id)) {
         if (fragment.face !== hit.object.userData.face) continue;
-        for (let i = 1; i < fragment.points.length; i++) distance = Math.min(distance, distanceToSegment(p, fragment.points[i - 1], fragment.points[i]));
+        for (let i = 1; i < fragment.points.length; i++) {
+          const t = segmentFraction(p, fragment.points[i - 1], fragment.points[i]);
+          consider(distanceToSegment(p, fragment.points[i - 1], fragment.points[i]), fragment.progress[i - 1] + t * (fragment.progress[i] - fragment.progress[i - 1]));
+        }
+        if (arrow.bidirectional && fragment.progress[0] === 0) {
+          const tail = fragment.points[0], d = orientArrow(arrow, size, true).direction;
+          consider(distanceToSegment(p, { x: tail.x - d.x * shape.base, y: tail.y - d.y * shape.base },
+            { x: tail.x + d.x * shape.tip, y: tail.y + d.y * shape.tip }), 0);
+        }
         if (!fragment.head) continue;
         const head = arrow.cells.at(-1), d = arrow.direction;
         const stem = arrow.cells.length === 1 ? shape.singletonStem : shape.base;
-        distance = Math.min(distance, distanceToSegment(p, { x: head.x - d.x * stem, y: head.y - d.y * stem },
-          { x: head.x + d.x * shape.tip, y: head.y + d.y * shape.tip }));
+        consider(distanceToSegment(p, { x: head.x - d.x * stem, y: head.y - d.y * stem },
+          { x: head.x + d.x * shape.tip, y: head.y + d.y * shape.tip }), arrow.cells.length - 1);
       }
-      if (distance < bestDistance) { bestDistance = distance; best = arrow.id; }
     }
     return best;
   }
 
-  highlight(id, type = 'hint') {
+  highlight(id, type = 'hint', reverse = false) {
     clearTimeout(this.highlightTimer);
-    this.highlighted = { id, type };
+    this.highlighted = { id, type, reverse };
     this.drawFaces();
     if (type === 'blocked') this.highlightTimer = setTimeout(() => this.clearHighlight(), 650);
   }
@@ -333,12 +466,15 @@ export class CubeView {
     for (const face of new Set(arrow.cells.map(cell => cell.face ?? arrow.face))) this.drawFaces(face);
   }
 
-  removeArrow(id) {
-    const arrow = this.arrowById?.get(id);
-    if (this.disposed || !arrow || this.removed.has(id)) return Promise.resolve(false);
+  removeArrow(id, { reverse = false } = {}) {
+    const original = this.arrowById?.get(id);
+    if (this.disposed || !original || this.removed.has(id) || (reverse && !original.bidirectional)) return Promise.resolve(false);
     if (this.animations.has(id)) return this.animations.get(id).promise;
-    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle);
-    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK);
+    const arrow = orientArrow(original, getGridSize(this.puzzle), reverse);
+    const routed = Boolean(this.puzzle.generatorVersion >= 11 || this.puzzle.wrapEdges?.length || this.puzzle.redirectors?.length || arrow.bidirectional);
+    const route = routed ? traceExitRoute(this.puzzle, original, reverse) : null;
+    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
+    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
     mesh.renderOrder = 4;
     this.cube.add(mesh);
@@ -347,31 +483,35 @@ export class CubeView {
     const head = arrow.cells.at(-1), direction = arrow.direction, size = getGridSize(this.puzzle);
     const edgeDistance = direction.x > 0 ? size - 0.5 - head.x : direction.x < 0 ? head.x + 0.5
       : direction.y > 0 ? size - 0.5 - head.y : head.y + 0.5;
-    const clearDistance = track.length + edgeDistance + 0.35;
+    const clearDistance = track.length + (route?.distance ?? edgeDistance) + 0.35;
     const animation = { kind: 'remove', arrow, mesh, material, shape, track, clearDistance, travel: clearDistance + size * 1.3,
-      reducedMotion: this.reducedMotion, start: performance.now(), duration: this.reducedMotion ? 150 : Math.min(520, 260 + arrow.cells.length * 4), resolve, promise };
+      route, reverse, reducedMotion: this.reducedMotion, start: performance.now(),
+      duration: this.reducedMotion ? 150 : routed ? Math.min(1100, 260 + (track.length + route.distance) * 6) : Math.min(520, 260 + arrow.cells.length * 4), resolve, promise };
     this.animations.set(id, animation);
     this.drawArrowFaces(arrow);
     this.schedule();
     return promise;
   }
 
-  bumpArrow(id, { onImpact = () => {} } = {}) {
-    const arrow = this.arrowById?.get(id);
-    if (this.disposed || !arrow || this.removed.has(id)) return Promise.resolve(false);
+  bumpArrow(id, { onImpact = () => {}, reverse = false } = {}) {
+    const original = this.arrowById?.get(id);
+    if (this.disposed || !original || this.removed.has(id) || (reverse && !original.bidirectional)) return Promise.resolve(false);
     if (this.animations.has(id)) return this.animations.get(id).promise;
-    const collision = findArrowCollision(this.puzzle, arrow, this.removed);
+    const collision = findArrowCollision(this.puzzle, original, this.removed, reverse);
     if (!collision) return Promise.resolve(false);
     if (this.highlighted?.id === id) { this.highlighted = null; clearTimeout(this.highlightTimer); }
-    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle);
-    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK);
+    const arrow = orientArrow(original, getGridSize(this.puzzle), reverse);
+    const routed = Boolean(this.puzzle.generatorVersion >= 11 || this.puzzle.wrapEdges?.length || this.puzzle.redirectors?.length || arrow.bidirectional);
+    const route = routed ? traceExitRoute(this.puzzle, original, reverse) : null;
+    const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
+    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
     mesh.renderOrder = 4;
     this.cube.add(mesh);
     let resolve;
     const promise = new Promise(r => { resolve = r; });
     this.animations.set(id, { kind: 'bump', arrow, mesh, material, shape, track, start: performance.now(),
-      distance: collision.distance, timings: bumpTimings(collision.distance, this.reducedMotion),
+      distance: collision.distance, timings: bumpTimings(collision.distance, this.reducedMotion, routed), route, reverse,
       reducedMotion: this.reducedMotion, lastDistance: 0, impacted: false, onImpact, resolve, promise });
     this.drawArrowFaces(arrow);
     this.schedule();
@@ -472,8 +612,8 @@ export class CubeView {
         remaining.startX = remaining.x; remaining.startY = remaining.y; remaining.dragged = true;
       }
       if (event.type === 'pointerup' && !pointer.dragged) {
-        const id = this.pick(event.clientX, event.clientY);
-        if (id !== null) this.onSelect(id);
+        const move = this.pickMove(event.clientX, event.clientY);
+        if (move !== null) this.onSelect(move.id, move.reverse);
       }
       // Holding still before release is a deliberate stop, rather than a fling.
       if (event.type !== 'pointerup' || performance.now() - pointer.lastMoveTime > 100) this.velocity.x = this.velocity.y = 0;
@@ -535,6 +675,7 @@ export class CubeView {
           animation.lastDistance = state.distance;
         }
         animation.material.color.set(state.color === 'blocked' ? BLOCKED : INK);
+        animation.material.uniforms.colored.value = animation.arrow.bidirectional && state.color !== 'blocked' ? 1 : 0;
         if (state.impacted && !animation.impacted) {
           animation.impacted = true;
           this.blocked.add(id);
@@ -579,6 +720,7 @@ export class CubeView {
     this.events.abort();
     this.resizeObserver.disconnect();
     this.cancelAnimations();
+    this.setFeatureEdges([]);
     this.body.geometry.dispose(); this.body.material.dispose();
     this.edgeFrame.geometry.dispose(); this.edgeFrame.material.dispose();
     for (const face of this.faces) { face.plane.geometry.dispose(); face.material.dispose(); face.ghostMaterial.dispose(); face.texture.dispose(); }

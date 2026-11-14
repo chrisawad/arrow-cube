@@ -15,7 +15,7 @@ export function normalizeProgress(value) {
   // Generator identity is separate from storage schema: old seeds must recreate
   // their original board so saved removed IDs still refer to the same arrows.
   const generatorVersion = value.generatorVersion === undefined ? 1 : value.generatorVersion;
-  if (!Number.isInteger(generatorVersion) || generatorVersion < 1 || generatorVersion > 10) return null;
+  if (!Number.isInteger(generatorVersion) || generatorVersion < 1 || generatorVersion > 11) return null;
   if (!Number.isInteger(value.size) || value.size < 2 || value.size > 64) return null;
   const seedValid = (Number.isSafeInteger(value.seed) && value.seed >= 0 && value.seed <= 0xffffffff) ||
     (typeof value.seed === 'string' && value.seed.length > 0 && value.seed.length <= 128);
