@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadProgress, saveProgress, normalizeProgress, STORAGE_KEY } from '../src/storage.js';
 
-const valid = () => ({ generatorVersion: 11, size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto' });
+const valid = () => ({ generatorVersion: 12, size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto' });
 test('progress round trips the puzzle seed, removed paths, dimension, and settings', () => {
   const values = new Map();
   globalThis.localStorage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
@@ -63,11 +63,11 @@ test('current generator version round trips without changing the existing storag
   };
   assert.equal(saveProgress(valid()), true);
   assert.equal(JSON.parse(stored).version, 1);
-  assert.equal(JSON.parse(stored).generatorVersion, 11);
+  assert.equal(JSON.parse(stored).generatorVersion, 12);
   assert.deepEqual(loadProgress(), { version: 1, ...valid() });
 });
-test('explicit generator 1 through 10 saves remain compatible', () => {
-  for (const generatorVersion of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+test('explicit generator 1 through 11 saves remain compatible', () => {
+  for (const generatorVersion of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
     let stored = JSON.stringify({ version: 1, ...valid(), generatorVersion });
     globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
     const restored = loadProgress();
@@ -89,8 +89,8 @@ test('generators 3, 4, and 5 use doubled grid capacity without changing the disp
     assert.equal(normalizeProgress({ ...dense, removed: Array.from({length: 6 * 8 ** 2 + 1}, (_, id) => id) }), null);
   }
 });
-test('generators 6 through 11 validate actual lane capacity instead of the earlier doubled grid', () => {
-  for (const generatorVersion of [6, 7, 8, 9, 10, 11]) for (const size of [2, 3, 6, 8, 64]) {
+test('generators 6 through 12 validate actual lane capacity instead of the earlier doubled grid', () => {
+  for (const generatorVersion of [6, 7, 8, 9, 10, 11, 12]) for (const size of [2, 3, 6, 8, 64]) {
     const gridSize = Math.max(4, Math.round(size * 1.6));
     const removed = Array.from({ length: 6 * gridSize ** 2 }, (_, id) => id);
     const progress = { ...valid(), generatorVersion, size, bestSize: size, removed, moves: removed.length };
@@ -117,7 +117,7 @@ test('blocked path IDs persist, deduplicate, and default to empty for older save
   }
 });
 test('unknown generator versions are rejected rather than restoring arrow IDs onto a different puzzle', () => {
-  for (const generatorVersion of [0, 12, -1, 1.5, '11', null, {}]) {
+  for (const generatorVersion of [0, 13, -1, 1.5, '12', null, {}]) {
     const unknown = { version: 1, ...valid(), generatorVersion };
     globalThis.localStorage = { getItem: () => JSON.stringify(unknown) };
     assert.equal(loadProgress(), null);

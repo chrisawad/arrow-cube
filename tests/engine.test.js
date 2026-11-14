@@ -54,6 +54,16 @@ test('same dimensions and seed reproduce exactly the same puzzle', () => {
   assert.notDeepEqual(generatePuzzle(8, 'saved-game-42'), generatePuzzle(8, 'saved-game-43'));
 });
 
+test('version 11 retains saved features, arrows, and solutions exactly', () => {
+  for (const [size, seed, hash] of [
+    [3, 1234, '9ed5efdaf7a273c111c2dbdff960966a9960f54a2361fd58f61ffc427be188a6'],
+    [8, 'saved-game-42', 'd38f82bbbd155edbe3626689df592fc49c9b3ae428e19a7462948aef07bc89f1'],
+    [12, 7, '35f46f122148e38e60ef44cc54478d557d23103fb5ec4874a4293cfda1c35969'],
+  ]) {
+    assert.equal(createHash('sha256').update(JSON.stringify(generatePuzzle(size, seed, 11))).digest('hex'), hash);
+  }
+});
+
 test('all generated geometry and certified solutions are valid across levels and seeds', () => {
   let minimumCoverage = 1;
   for (const size of [2, 3, 4, 5, 7, 10, 16, 24, 32, 40, 64]) {

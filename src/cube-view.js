@@ -4,6 +4,7 @@ import { arrowShape, arrowFragments, arrowHead, findArrowCollision, bumpTimings,
 import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.js';
 import { orientArrow, reverseAtProgress } from './arrow-orientation.js';
 import { traceExitRoute } from './routing.js';
+import { yellowEdgeGeometries } from './yellow-edges.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
 // top-left grid origin; the plane UV conversion below shares that convention.
@@ -370,11 +371,7 @@ export class CubeView {
     }
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
-    for (const [a, b] of edges) {
-      const fixed = FACE_BASIS[a].normal.map((value, i) => value + FACE_BASIS[b].normal[i]);
-      const start = new THREE.Vector3(...fixed.map(value => value || -1)).multiplyScalar(1.028);
-      const end = new THREE.Vector3(...fixed.map(value => value || 1)).multiplyScalar(1.028);
-      const geometry = new THREE.TubeGeometry(new THREE.LineCurve3(start, end), 1, 0.012, 6, false);
+    for (const geometry of yellowEdgeGeometries(edges)) {
       const material = new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.97, depthWrite: false });
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 5;
       this.featureEdges.add(mesh);

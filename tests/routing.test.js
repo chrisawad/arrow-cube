@@ -69,7 +69,7 @@ test('closed routing loops terminate detection and cannot remove a line', () => 
 test('feature boards contain every mechanic, usable reverse ends, and valid certified routes', () => {
   for (const size of [2, 3, 5, 8, 12, 32, 64]) for (let seed = 0; seed < (size >= 32 ? 2 : 12); seed++) {
     const puzzle = generatePuzzle(size, seed), occupied = new Set(), removed = new Set();
-    assert.equal(puzzle.generatorVersion, 11);
+    assert.equal(puzzle.generatorVersion, 12);
     assert(puzzle.wrapEdges.length > 0); assert(puzzle.redirectors.length > 0);
     assert(puzzle.arrows.some(arrow => arrow.bidirectional));
     for (const arrow of puzzle.arrows) {
@@ -95,6 +95,8 @@ test('feature boards contain every mechanic, usable reverse ends, and valid cert
     }
     assert.equal(removed.size, puzzle.arrows.length);
     assert(usedEdges.size > 0 && usedMarkers.size > 0, 'the certificate must actually exercise the routing features');
+    assert.deepEqual(usedMarkers, new Set(puzzle.redirectors.map(marker => marker.id)),
+      'every redirector must turn a line during a legal solution, not merely lie on a possible ray');
     assert(occupied.size / (6 * puzzle.gridSize ** 2) > 0.8);
   }
 });

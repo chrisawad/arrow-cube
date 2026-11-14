@@ -7,7 +7,7 @@ import { buildFeaturePuzzle } from './feature-generator.js';
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 64;
 // Persist this with a saved board: seed mappings are stable within a version.
-export const GENERATOR_VERSION = 11;
+export const GENERATOR_VERSION = 12;
 const DIRECTIONS = [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }];
 const indexes = new WeakMap();
 
@@ -59,8 +59,8 @@ export function generatePuzzle(size, seed = Date.now(), generatorVersion = GENER
   if (!Number.isInteger(size) || size < MIN_SIZE || size > MAX_SIZE) {
     throw new RangeError(`Cube dimensions must be an integer from ${MIN_SIZE} to ${MAX_SIZE}.`);
   }
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
-  if (generatorVersion === 11) return generateSpecialPuzzle(size, seed);
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
+  if (generatorVersion >= 11) return generateSpecialPuzzle(size, seed, generatorVersion);
   if (generatorVersion >= 7) return generateExtendedPuzzle(size, seed, generatorVersion);
   if (generatorVersion >= 5) return generateRandomPuzzle(size, seed, generatorVersion);
   if (generatorVersion === 4) return generateLongPuzzle(size, seed);
@@ -586,9 +586,19 @@ function finishSpecialPuzzle(puzzle, certificate) {
 }
 
 /** Feature-first carving keeps all routes provable without repeated repair passes. */
-function generateSpecialPuzzle(size, seed) {
+function generateSpecialPuzzle(size, seed, generatorVersion) {
   for (let attempt = 0; attempt < 6; attempt++) {
     let puzzle = buildFeaturePuzzle(size, seed, seededRandom, attempt);
+    if (generatorVersion >= 12) {
+      const forward = certifySpecialPuzzle(puzzle);
+      if (!forward) throw new Error('Feature carving produced an uncertified puzzle');
+      // Keep only markers that actually TURN a line in a playable solution.
+      // Removing the others preserves every certified forward route: they
+      // were either never reached or merely pointed in its existing direction.
+      // Choose the reversible ends afterward, against this final flow field.
+      puzzle = { ...puzzle, generatorVersion,
+        redirectors: puzzle.redirectors.filter(marker => forward.markers.has(marker.id)) };
+    }
     const random = seededRandom(String(seed) + ':two-ends:' + attempt);
     const eligible = puzzle.arrows.filter(arrow => {
       const info = routeInfo(puzzle, arrow, true);
