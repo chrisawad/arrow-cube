@@ -81,7 +81,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .header-actions { gap: .2rem; padding-inline: .4rem; }
   .header-actions .quiet { font-size: .65rem; padding-inline: .35rem; }
   .saved { font-size: 0; gap: 0; }
-  .sidebar { inset-block-start: calc(var(--top) + 3.6rem); inline-size: min(24rem, calc(100% - var(--left) - var(--right))); }
+  .sidebar {
+    inset-block-start: calc(var(--top) + 3.6rem); inset-inline: var(--left) var(--right);
+    inline-size: min(24rem, calc(100% - var(--left) - var(--right))); margin-inline: auto;
+  }
   .level-card { display: grid; grid-template-columns: auto minmax(0,1fr); gap: .4rem .9rem; padding: .65rem .85rem; }
   .level-card-top { grid-column: 1 / -1; }
   .level-number { grid-column: 1; grid-row: 2 / 4; align-self: center; margin: 0; font-size: 2rem; }
@@ -95,7 +98,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .stage-caption { display: none; }
   .game-controls { flex-direction: row; flex-wrap: wrap; justify-content: end; }
   .move-count { display: none; }
-  .sidebar { inline-size: min(13rem, calc(100% - var(--left) - var(--right))); }
+  .sidebar { inset-inline: var(--left) auto; inline-size: min(13rem, calc(100% - var(--left) - var(--right))); margin-inline: 0; }
   .level-number { font-size: 1.7rem; }
   .level-card { padding: .6rem .75rem; }
   #toast { inset-block-end: calc(var(--bottom) + 5rem); }
