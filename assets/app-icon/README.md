@@ -1,6 +1,6 @@
 # Arrow Cube icon artwork
 
-`source-corner.png` is the current close-up artwork, edited with the built-in imagegen tool from `source.png`. The original screenshot crop remains available for reference. Normal app builds use the checked-in PNG/ICO exports; regenerate them with `python scripts/build-icons.py`.
+`source-corner.png` is the current close-up artwork, edited with the built-in imagegen tool from a square crop of the user's gameplay screenshot. The crop details are recorded in `provenance.txt`. Normal app builds use the checked-in PNG/ICO exports; regenerate them with `python scripts/build-icons.py`.
 
 ## Edit prompt
 
