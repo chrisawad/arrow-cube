@@ -292,8 +292,8 @@ export class CubeView {
     this.scene.add(fill);
     this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035),
       new THREE.MeshBasicMaterial({ color: 0xe2f1ff, opacity: 0.15, transparent: true, depthWrite: false }));
-    // Composite the cube and edge markings first. Neither writes depth, so
-    // every arrow layer remains visible over the gray bands at any rotation.
+    // Composite far-side arrows before slide bands, then front-facing arrows.
+    // Solid bands also write depth to hide far-side moving arrows behind them.
     this.body.renderOrder = 0;
     this.cube.add(this.body);
     this.edgeFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.044, 2.044, 2.044)),
@@ -318,7 +318,7 @@ export class CubeView {
         fragmentShader: 'uniform sampler2D arrows; varying vec2 texCoord; void main(){ float a=texture2D(arrows,texCoord).a; if(a<0.015)discard; gl_FragColor=vec4(1.0,1.0,1.0,a*0.96); }',
         side: THREE.BackSide, transparent: true, depthWrite: false });
       const ghost = new THREE.Mesh(plane.geometry, ghostMaterial);
-      ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 3;
+      ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 2;
       this.cube.add(ghost);
       return { canvas, ctx: canvas.getContext('2d'), texture, material, plane, ghost, ghostMaterial };
     });
@@ -404,7 +404,7 @@ export class CubeView {
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
       const material = new THREE.MeshBasicMaterial({ color: '#939ba6', transparent: true, opacity: 1, depthWrite: false });
       const backColor = new THREE.Color('#939ba6'), frontColor = new THREE.Color('#3f4a57');
-      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
+      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 3;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {
@@ -415,6 +415,9 @@ export class CubeView {
         const facing = Math.max(eye.dot(normalA), eye.dot(normalB));
         const visible = THREE.MathUtils.smoothstep(facing, -0.12, 0);
         material.opacity = THREE.MathUtils.lerp(0.15, 1, visible);
+        // Only opaque facing bands occlude geometry behind them. Arrow planes
+        // and moving ribbons sit outside the inset band and stay visible in front.
+        material.depthWrite = visible === 1;
         material.color.copy(backColor).lerp(frontColor, visible);
       };
       this.featureEdges.add(mesh);

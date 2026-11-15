@@ -46,6 +46,41 @@ test('yellow bands and rounded caps never protrude beyond the arrow planes in fa
   }
 });
 
+test('facing slide bands block far-side arrows while faded bands do not write opaque depth', () => {
+  const { view } = fixture(), mesh = view.featureEdges.children[0];
+  mesh.geometry.computeBoundingSphere();
+  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 80);
+  const renderFrom = position => {
+    camera.position.copy(position); camera.updateMatrixWorld();
+    mesh.updateWorldMatrix(true, false);
+    mesh.onBeforeRender(null, null, camera);
+  };
+  for (const rotation of [[0, 0, 0], [.4, -.55, -.025]]) {
+    view.cube.rotation.set(...rotation);
+    renderFrom(new THREE.Vector3(0, 0, 7));
+    assert.equal(mesh.material.opacity, 1);
+    assert.equal(mesh.material.depthWrite, true, 'solid bands must occlude far-side moving arrows');
+    // Compare real band geometry with the enclosing near/far arrow planes.
+    // The near arrow must win the depth test; the far arrow must fail it.
+    const center = mesh.geometry.boundingSphere.center.clone().applyMatrix4(mesh.matrixWorld);
+    const raycaster = new THREE.Raycaster(camera.position, center.clone().sub(camera.position).normalize());
+    const hit = raycaster.intersectObject(mesh)[0];
+    assert(hit, 'the test ray must cross the slide band');
+    const box = new THREE.Box3(new THREE.Vector3(-1.021, -1.021, -1.021), new THREE.Vector3(1.021, 1.021, 1.021));
+    const localRay = raycaster.ray.clone().applyMatrix4(mesh.matrixWorld.clone().invert());
+    const near = localRay.intersectBox(box, new THREE.Vector3()).applyMatrix4(mesh.matrixWorld);
+    assert(camera.position.distanceTo(near) < hit.distance, 'front arrows stay above the band');
+    const farRay = new THREE.Ray(raycaster.ray.at(20, new THREE.Vector3()),
+      raycaster.ray.direction.clone().negate()).applyMatrix4(mesh.matrixWorld.clone().invert());
+    const far = farRay.intersectBox(box, new THREE.Vector3()).applyMatrix4(mesh.matrixWorld);
+    assert(camera.position.distanceTo(far) > hit.distance, 'far arrows lie behind the band');
+  }
+  view.cube.rotation.set(0, 0, 0);
+  renderFrom(new THREE.Vector3(-7, 0, -7));
+  assert.equal(mesh.material.opacity, .15);
+  assert.equal(mesh.material.depthWrite, false, 'far-side bands must remain see-through after rotation');
+});
+
 test('the movement track turns on both blue markers and follows both physical creases', () => {
   const route = traceExitRoute(chain, source), track = surfaceTrack(source, chain, route);
   for (const node of route.nodes) {
