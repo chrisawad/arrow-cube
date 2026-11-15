@@ -3,7 +3,7 @@ import {applyRedirectorFlips,flippedRedirectorIds,restoreRedirectors} from './ro
 import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
-import winVoiceURL from '../assets/audio/you-win-group.mp3?url';
+import winVoiceURL from '../assets/audio/tracks/voice-2-boy.wav?url';
 import {setupInstall} from './install.js';
 import {normalizeTheme} from './theme.js';
 import {setupThemeControls} from './theme-controls.js';

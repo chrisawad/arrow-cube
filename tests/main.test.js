@@ -122,7 +122,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     createColorWheel: (_element, options) => {
       const wheel = { options, setHsv(hsv) { this.hsv = { ...hsv }; } }; wheels.push(wheel); return wheel;
     },
-    CubeView: View, GameAudio: Audio, winVoiceURL: '/assets/you-win-group-test.mp3', loadProgress: () => saved,
+    CubeView: View, GameAudio: Audio, winVoiceURL: '/assets/you-win-boy-test.wav', loadProgress: () => saved,
     saveProgress: progress => { saves.push(structuredClone(progress)); return true; },
     setupInstall: () => {}, matchMedia: () => ({ matches: false }),
     crypto: { getRandomValues: array => { array[0] = nextSeed++; return array; } },
@@ -584,7 +584,7 @@ test('a partial heart refill needs confirmation, consumes one reset, and preserv
 
 test('settings contains working sound, animation, and difficulty controls without changing the current board', () => {
   const h = boot();
-  assert.equal(h.sounds.voiceURL, '/assets/you-win-group-test.mp3', 'the game uses its bundled group cheer');
+  assert.equal(h.sounds.voiceURL, '/assets/you-win-boy-test.wav', 'the game uses the selected boy voice');
   const initial = h.state();
   h.get('settings').click();
   assert.equal(h.get('settings-dialog').open, true);
