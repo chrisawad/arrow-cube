@@ -77,10 +77,10 @@
       <div class="color-selected"><i id="color-preview" aria-hidden="true"></i><h3 id="color-name">Slide edges</h3></div>
       <div id="color-wheel" aria-hidden="true"></div>
       <div class="color-sliders">
-        <label for="color-brightness">Brightness <output id="color-brightness-value" for="color-brightness">100%</output></label>
-        <input id="color-brightness" type="range" min="0" max="100" step="1" value="100">
+        <label for="color-brightness">Brightness <output id="color-brightness-value" for="color-brightness">69%</output></label>
+        <input id="color-brightness" type="range" min="0" max="100" step="1" value="69">
       </div>
-      <label class="color-hex-label" for="color-hex">Hex <input id="color-hex" type="text" value="#ffff00" maxlength="7" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="color-error"></label>
+      <label class="color-hex-label" for="color-hex">Hex <input id="color-hex" type="text" value="#b000a7" maxlength="7" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="color-error"></label>
       <p id="color-error" class="color-error" aria-live="polite"></p>
     </section>
     <button id="theme-reset" class="secondary" type="button" aria-describedby="color-name">Reset this color</button>
@@ -116,7 +116,16 @@
     <button id="loss-restart" class="secondary" type="button">Restart level</button>
     <p class="small">Go back keeps your progress. Restart level clears it. One reset returns every 3 hours.</p>
   </dialog>
-  <dialog id="win-dialog" aria-label="Level cleared"><div class="win-mark" aria-hidden="true">✧</div><h2>Level cleared.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
+  <dialog id="win-dialog" aria-labelledby="win-title" aria-describedby="win-description">
+    <canvas id="win-confetti" aria-hidden="true"></canvas>
+    <div class="win-mark" aria-hidden="true"><svg viewBox="0 0 80 80" width="80" height="80"><path d="M23 15H12v10c0 11 8 17 18 17m27-27h11v10c0 11-8 17-18 17" fill="none" stroke="#d99b24" stroke-width="6" stroke-linecap="round"/><path d="M23 10h34v23c0 12-8 21-17 21s-17-9-17-21Z" fill="#ffcf48" stroke="#dda227" stroke-width="3"/><path d="M40 54v12m-13 4h26" fill="none" stroke="#d99b24" stroke-width="7" stroke-linecap="round"/><path d="m40 19 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" fill="#fff6c2"/></svg></div>
+    <p id="win-level" class="win-level">Level complete</p>
+    <h2 id="win-title">You win!</h2>
+    <p id="win-description"></p>
+    <p id="win-next" class="win-next"></p>
+    <button id="next-level" class="primary" type="button" autofocus>Next level <span aria-hidden="true">→</span></button>
+    <button class="quiet" type="button" data-close>Enjoy the moment</button>
+  </dialog>
   <dialog id="help-dialog" aria-labelledby="help-title">
     <button class="dialog-close" type="button" data-close aria-label="Close help" autofocus>×</button>
     <h2 id="help-title">How to play</h2>
@@ -140,7 +149,7 @@
         <div><h3>Reversing turn marker</h3><p>The front end turns in the marker direction. The marker then reverses direction. If the arrow leaves the cube, the marker keeps its new direction. After a crash, the marker returns to its previous direction.</p></div>
       </li>
       <li>
-        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m14 16 27-9 32 10v25l-28 9-31-12Zm0 0 31 11 28-10M45 27v24" fill="#e2f1f8" stroke="#748492" stroke-width="1.5" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#748492" stroke-width="8" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="var(--game-edge, #ffff00)" stroke-width="5" stroke-linejoin="round"/><path d="m28 15 0 7 24 8 12-4" fill="none" stroke="var(--game-ink, #15191f)" stroke-width="4" stroke-linejoin="round"/><path d="m69 24-8-2 3 8Z" fill="var(--game-ink, #15191f)"/></svg>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m14 16 27-9 32 10v25l-28 9-31-12Zm0 0 31 11 28-10M45 27v24" fill="#e2f1f8" stroke="#748492" stroke-width="1.5" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#748492" stroke-width="8" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="var(--game-edge, #b000a7)" stroke-width="5" stroke-linejoin="round"/><path d="m28 15 0 7 24 8 12-4" fill="none" stroke="var(--game-ink, #15191f)" stroke-width="4" stroke-linejoin="round"/><path d="m69 24-8-2 3 8Z" fill="var(--game-ink, #15191f)"/></svg>
         <div><h3>Slide edge</h3><p>The arrow moves around this edge to the next face. The edge works in both directions.</p></div>
       </li>
       <li>

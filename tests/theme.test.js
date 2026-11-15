@@ -9,7 +9,7 @@ test('HSV conversions preserve every palette color and grayscale without channel
     assert.equal(hsvToHex(hexToHsv(hex)), hex);
   }
   assert.equal(hexToHsv('#888888', 247).h, 247, 'gray retains the chosen hue for later saturation changes');
-  assert.deepEqual(hexToRgb(DEFAULT_THEME.edge), [255, 255, 0]);
+  assert.deepEqual(hexToRgb(DEFAULT_THEME.edge), [176, 0, 167]);
 });
 
 test('theme data permits only known six-digit hex colors and never discards puzzle progress', () => {

@@ -7,6 +7,7 @@ import {setupInstall} from './install.js';
 import {normalizeTheme} from './theme.js';
 import {setupThemeControls} from './theme-controls.js';
 import {createColorWheel} from './color-wheel.js';
+import {createWinCelebration} from './celebration.js';
 import {MAX_HEARTS,MAX_RESETS,recoverResets,restoreResets,spendReset,normalizeCrashes,recoveryCountdown,resetRechargeFraction} from './lives.js';
 
 const $ = id => document.getElementById(id);
@@ -19,6 +20,8 @@ const requestedMotion = new URLSearchParams(window.location.search).get('motion'
 let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'full';
 const audio = new GameAudio(soundEnabled);
 let view;
+const winCelebration = createWinCelebration($('win-confetti'));
+$('win-dialog').addEventListener('close',()=>{winCelebration.stop();audio.stopWin();});
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
 function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,bestSize,motion:motionMode,theme});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
@@ -68,6 +71,8 @@ function showLoss(){
 }
 function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=puzzle.size;$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('progress-percent').textContent=`${percent}%`;$('completion').setAttribute('aria-valuenow',String(percent));$('progress-fill').style.width=`${percent}%`;$('hint-label').textContent=removed.size===count?'Next level':'Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').textContent=soundEnabled?'On':'Off';refreshResources(false);persist();}
 function start(size,boardSeed=seed(),restore=null){
+  winCelebration.stop();audio.stopWin();
+  if($('win-dialog').open)$('win-dialog').close();
   generation++;busy=false;hintId=null;hintReverse=false;
   crashes=normalizeCrashes(restore?.crashes);
   if($('loss-dialog').open)$('loss-dialog').close();
@@ -83,7 +88,15 @@ function start(size,boardSeed=seed(),restore=null){
   if(removed.size===puzzle.arrows.length)showWin();
   else if(crashes>=MAX_HEARTS)showLoss();
 }
-function showWin(){const maxed=puzzle.size>=64;$('win-description').textContent=maxed?`You cleared the largest cube: ${puzzle.size} × ${puzzle.size}. Ready for a fresh challenge?`:`Level ${puzzle.size}, cleared. Your next cube is ${puzzle.size+1} × ${puzzle.size+1}, with a whole new set of paths.`;$('next-level').firstChild.textContent=maxed?'Another master cube ':'Next dimension ';if(!$('win-dialog').open)$('win-dialog').showModal();}
+function showWin(celebrate=false){
+  const maxed=puzzle.size>=64, dialog=$('win-dialog'), opening=!dialog.open;
+  $('win-level').textContent=`Level ${puzzle.size} complete`;
+  $('win-description').textContent=`All ${puzzle.arrows.length} arrows cleared. You untangled the whole ${puzzle.size} × ${puzzle.size} cube!`;
+  $('win-next').textContent=maxed?'You mastered the largest cube. Try a fresh puzzle!':`Next up: Level ${puzzle.size+1}`;
+  $('next-level').firstChild.textContent=maxed?'Play again ':'Next level ';
+  if(opening)dialog.showModal();
+  if(celebrate&&opening){audio.win();winCelebration.play();}
+}
 async function selectArrow(id,reverse=false){
   if(busy)return;
   if(crashes>=MAX_HEARTS){showLoss();return;}
@@ -124,7 +137,7 @@ async function selectArrow(id,reverse=false){
     blocked.delete(id);
     update();
     await departure;
-    if(turn===generation&&removed.size===puzzle.arrows.length){audio.win();showWin();}
+    if(turn===generation&&removed.size===puzzle.arrows.length)showWin(true);
   }finally{
     if(turn===generation)busy=false;
   }
@@ -202,6 +215,6 @@ setupInstall($('install'),notify);
 setInterval(()=>{if(document.visibilityState!=='hidden')refreshResources();},1000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')refreshResources();});
 window.addEventListener('pageshow',()=>refreshResources());
-window.addEventListener('pagehide',()=>{if(puzzle)persist();});
+window.addEventListener('pagehide',()=>{winCelebration.stop();audio.stopWin();if(puzzle)persist();});
 // Read-only diagnostics for reproducible QA; gameplay continues through the public controls.
 window.__arrowCube={getState:()=>({size:puzzle?.size,gridSize:puzzle?.gridSize??puzzle?.size,generatorVersion:puzzle?.generatorVersion,seed:puzzle?.seed,remaining:puzzle?.arrows.length-removed.size,moves,crashes,hearts:MAX_HEARTS-crashes,resets:{...resets},lost:crashes>=MAX_HEARTS,removed:[...removed],blocked:[...blocked],available:puzzle?getRemovable(puzzle,removed).map(a=>a.id):[],availableMoves:puzzle?getRemovable(puzzle,removed).map(a=>({id:a.id,reverse:Boolean(a.reverse)})):[],wrapEdges:puzzle?.wrapEdges||[],redirectors:puzzle?.redirectors||[],bidirectional:puzzle?.arrows.filter(a=>a.bidirectional).map(a=>a.id)||[],busy,motion:motionMode,reducedMotion:view?.reducedMotion})};

@@ -77,7 +77,8 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     window.location.href = cleanURL.href;
     window.location.search = cleanURL.search;
   } };
-  const saves = [], sounds = { prepared: 0, swoosh: 0, blocked: 0, win: 0 }, views = [], wheels = [];
+  const saves = [], sounds = { prepared: 0, swoosh: 0, blocked: 0, win: 0, stopped: 0 }, views = [], wheels = [];
+  const celebration = { plays: 0, stops: 0, play() { assert(elements.get('win-dialog').open, 'open the native dialog before drawing its full-screen canvas'); this.plays++; }, stop() { this.stops++; } };
   class View {
     calls = [];
     animations = [];
@@ -107,6 +108,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     swoosh() { sounds.swoosh++; }
     blocked() { sounds.blocked++; }
     win() { sounds.win++; }
+    stopWin() { sounds.stopped++; }
   }
   let nextSeed = 8137;
   const intervals = [];
@@ -115,6 +117,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION,
     applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors,
     ...lifeRules, normalizeTheme, setupThemeControls, Date: Clock,
+    createWinCelebration: () => celebration,
     createColorWheel: (_element, options) => {
       const wheel = { options, setHsv(hsv) { this.hsv = { ...hsv }; } }; wheels.push(wheel); return wheel;
     },
@@ -128,7 +131,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
   const view = views[0];
   assert.equal(view.calls.length, 1, 'startup must initialize the board');
   return {
-    view, saves, sounds, views, presets, hearts, resetIcons, wheels, get: id => elements.get(id), search: () => window.location.search,
+    view, saves, sounds, celebration, views, presets, hearts, resetIcons, wheels, get: id => elements.get(id), search: () => window.location.search,
     state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())), pagehide: () => window.emit('pagehide'),
     advance(milliseconds) { now += milliseconds; for (const callback of intervals) callback(); },
     visibility(state) { document.visibilityState = state; document.emit('visibilitychange'); },
@@ -511,15 +514,45 @@ test('successful releases are unlimited and winning resets crashes without reple
     const move = h.state().availableMoves[0];
     assert(move, 'the puzzle must stay solvable');
     const playing = h.view.options.onSelect(move.id, move.reverse);
+    if(h.state().remaining===0){
+      assert.equal(h.celebration.plays, 0, 'wait for the final arrow to leave before celebrating');
+      assert.equal(h.sounds.win, 0);
+    }
     h.view.animations.at(-1).resolve(true); await playing;
     assert.equal(h.state().crashes, 4);
     assert.deepEqual(h.state().resets, bank);
   }
   assert.equal(h.state().moves, count);
   assert.equal(h.get('win-dialog').open, true);
+  assert.equal(h.celebration.plays, 1);
+  assert.equal(h.sounds.win, 1);
+  assert.equal(h.get('win-level').textContent, 'Level 5 complete');
+  assert.match(h.get('win-description').textContent, new RegExp(`All ${count} arrows cleared`));
+  assert.equal(h.get('next-level').firstChild.textContent, 'Next level ');
+  h.get('win-dialog').close();
+  const stops = h.celebration.stops;
+  h.get('hint').click();
+  assert.equal(h.get('win-dialog').open, true);
+  assert.equal(h.celebration.plays, 1, 'reopening a completed level does not replay the fanfare or confetti');
+  assert.equal(h.sounds.win, 1);
   h.get('next-level').click();
+  assert.equal(h.state().size, 6);
+  assert(h.celebration.stops > stops);
   assert.equal(h.state().crashes, 0);
   assert.deepEqual(h.state().resets, bank);
+});
+
+test('restored wins stay quiet and the largest level offers a fresh level-64 puzzle', () => {
+  const savedPuzzle = lifePuzzle(64, 17);
+  const h = boot(saveFor(64, 17, { removed: savedPuzzle.arrows.map(arrow=>arrow.id), moves: savedPuzzle.arrows.length }), { puzzleFactory: lifePuzzle });
+  assert.equal(h.get('win-dialog').open, true);
+  assert.equal(h.sounds.win, 0); assert.equal(h.celebration.plays, 0);
+  assert.equal(h.get('next-level').firstChild.textContent, 'Play again ');
+  assert.match(h.get('win-next').textContent, /largest cube/);
+  h.get('next-level').click();
+  assert.equal(h.state().size, 64); assert.notEqual(h.state().seed, 17);
+  assert.equal(h.state().removed.length, 0);
+  assert.equal(h.get('win-dialog').open, false);
 });
 
 test('a partial heart refill needs confirmation, consumes one reset, and preserves all progress', async () => {
@@ -635,7 +668,7 @@ test('theme opens from both controls, previews wheel and hex colors, and restore
     h.get('settings').click(); h.get('theme-settings').click();
     assert.equal(h.get('settings-dialog').open, false);
     assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);
-    assert.equal(h.get('color-hex').value, '#ffff00');
+    assert.equal(h.get('color-hex').value, '#b000a7');
     h.wheels[0].options.onChange({ h: 200, s: 1, v: 1 });
     assert.equal(h.view.theme.edge, '#00aaff');
     assert.equal(h.get('color-preview').style['--swatch'], '#00aaff');
@@ -660,7 +693,7 @@ test('theme opens from both controls, previews wheel and hex colors, and restore
     h.get('color-part').value = 'edge'; h.get('color-part').emit('change');
     h.get('theme-reset').click();
     assert.deepEqual(h.saves.at(-1).theme, DEFAULT_THEME);
-    assert.equal(h.get('color-hex').value, '#ffff00');
+    assert.equal(h.get('color-hex').value, '#b000a7');
     assert.equal(h.get('color-hex').getAttribute('aria-invalid'), 'false');
     h.get('theme-close').click(); h.get('theme-open').click();
     assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);

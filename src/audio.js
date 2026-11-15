@@ -1,7 +1,7 @@
 /** Small synthesized sounds: no downloads, autoplay, or persistent audio graph. */
 export class GameAudio {
-  constructor(enabled = true) { this.enabled = enabled; this.context = null; this.noise = null; this.tick = null; }
-  setEnabled(enabled) { this.enabled = Boolean(enabled); }
+  constructor(enabled = true) { this.enabled = enabled; this.context = null; this.noise = null; this.tick = null; this.horns = new Set(); }
+  setEnabled(enabled) { this.enabled = Boolean(enabled); if (!this.enabled) this.stopWin(); }
   // Unlock audio during the click, without playing a sound before impact.
   prepare() { this._context(); }
   _context() {
@@ -39,17 +39,33 @@ export class GameAudio {
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
     source.start(now); source.stop(now + duration + 0.02);
   }
-  _tone(context, frequency, offset, duration, volume = 0.055) {
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
+  _trumpet(context, wave, frequency, offset, duration, volume) {
+    const oscillator = context.createOscillator(), filter = context.createBiquadFilter(), gain = context.createGain();
+    const vibrato = context.createOscillator(), depth = context.createGain();
     const now = context.currentTime + offset;
-    oscillator.type = 'sine'; oscillator.frequency.value = frequency;
+    oscillator.setPeriodicWave(wave);
+    oscillator.frequency.setValueAtTime(frequency * .994, now);
+    oscillator.frequency.linearRampToValueAtTime(frequency, now + .025);
+    filter.type = 'lowpass'; filter.Q.value = .7;
+    // A brass attack opens the upper harmonics, then softens into the held note.
+    filter.frequency.setValueAtTime(frequency * 2, now);
+    filter.frequency.exponentialRampToValueAtTime(frequency * 9, now + .025);
+    filter.frequency.exponentialRampToValueAtTime(frequency * 4, now + duration);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(volume, now + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
-    oscillator.start(now); oscillator.stop(now + duration + 0.02);
+    gain.gain.linearRampToValueAtTime(volume, now + .012);
+    gain.gain.linearRampToValueAtTime(volume * .7, now + .065);
+    gain.gain.setValueAtTime(volume * .65, now + duration - .045);
+    gain.gain.linearRampToValueAtTime(0, now + duration);
+    vibrato.frequency.value = 5.4;
+    depth.gain.setValueAtTime(0, now);
+    depth.gain.linearRampToValueAtTime(frequency * .004, now + Math.min(.25, duration * .8));
+    vibrato.connect(depth).connect(oscillator.frequency);
+    oscillator.connect(filter).connect(gain).connect(context.destination);
+    const horn = { oscillator, vibrato, gain, nodes: [oscillator, vibrato, depth, filter, gain] };
+    this.horns.add(horn);
+    oscillator.onended = () => { for (const node of horn.nodes) node.disconnect(); this.horns.delete(horn); };
+    oscillator.start(now); vibrato.start(now);
+    oscillator.stop(now + duration + .01); vibrato.stop(now + duration + .01);
   }
   blocked() {
     const context = this._context();
@@ -78,7 +94,23 @@ export class GameAudio {
   win() {
     const c = this._context();
     if (!c) return;
-    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, i) => this._tone(c, frequency, i * 0.09, 0.35));
+    this.stopWin();
+    const harmonics = new Float32Array([0, 1, .8, .55, .4, .25, .18, .12, .09, .07, .05, .04]);
+    const wave = c.createPeriodicWave(new Float32Array(harmonics.length), harmonics);
+    // A short G-G-G / C-E-G trumpet fanfare, ending on a bright C-major chord.
+    for (const [frequency, at, length] of [[392, 0, .14], [392, .18, .14], [392, .36, .14],
+      [523.25, .57, .2], [659.25, .82, .2], [783.99, 1.07, .85]]) {
+      this._trumpet(c, wave, frequency, at, length, .07);
+    }
+    for (const frequency of [523.25, 659.25]) this._trumpet(c, wave, frequency, 1.07, .85, .018);
   }
-  dispose() { this.context?.close().catch(() => {}); this.context = null; this.noise = null; this.tick = null; }
+  stopWin() {
+    for (const horn of this.horns) {
+      horn.gain.gain.cancelScheduledValues(0); horn.gain.gain.value = 0;
+      try { horn.oscillator.stop(); horn.vibrato.stop(); } catch { /* Already ended. */ }
+      for (const node of horn.nodes) node.disconnect();
+    }
+    this.horns.clear();
+  }
+  dispose() { this.stopWin(); this.context?.close().catch(() => {}); this.context = null; this.noise = null; this.tick = null; }
 }

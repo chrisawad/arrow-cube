@@ -1,8 +1,9 @@
 export const DEFAULT_THEME = Object.freeze({
-  edge: '#ffff00', ink: '#15191f', end1: '#37b487', end2: '#f1c643',
+  edge: '#b000a7', ink: '#15191f', end1: '#37b487', end2: '#f1c643',
   fixed: '#74ccef', flip: '#b64bed', background: '#e2f1f8',
   ghost: '#ffffff', crash: '#e16457', hint: '#5b55e7',
 });
+export const THEME_VERSION = 1;
 
 export const THEME_LABELS = Object.freeze({
   edge: 'Slide edges', ink: 'Arrows', end1: 'Double arrow · first end', end2: 'Double arrow · second end',

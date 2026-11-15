@@ -6,7 +6,7 @@ The cube canvas fills the viewport, with progress and controls floating above it
 
 Each puzzle starts with five hearts. Each crash removes one; the fifth crash opens the loss screen. Successful releases and hints are unlimited. A reset token refills all five hearts while keeping puzzle progress; it can also be used early by tapping the reset icons. Players can hold four reset tokens and recover one every three hours, including time offline. With no hearts or reset tokens, choose Go back to wait on the same board, or restart the exact same puzzle for free. An arrow attempt at zero hearts reopens the refill choice. Go back does not change progress, hearts, or the recovery timer. Starting or restarting a puzzle restores hearts but never refills reset tokens. Saves retain the seed, cleared paths, hearts, reset balance, and recovery deadline. Older life balances migrate to reset tokens capped at four.
 
-The compact HUD shows the level, completion percentage and bar, five heart icons, and four reset icons. Hint, Theme colors, Help, and Settings sit below the cube. Settings holds theme colors, difficulty, sound, animation, and installation controls. The Theme panel uses the bundled iro.js color wheel with brightness and hex controls. Select a game part to preview its color immediately; choices persist on this device. Reset this color restores only the selected part to its default; other colors and puzzle progress stay unchanged. The default slide-edge color is yellow.
+The compact HUD shows the level, completion percentage and bar, five heart icons, and four reset icons. Hint, Theme colors, Help, and Settings sit below the cube. Settings holds theme colors, difficulty, sound, animation, and installation controls. The Theme panel uses the bundled iro.js color wheel with brightness and hex controls. Select a game part to preview its color immediately; choices persist on this device. Reset this color restores only the selected part to its default; other colors and puzzle progress stay unchanged. The default slide-edge color is #b000a7.
 
 ## Run
 
@@ -77,7 +77,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 - **Level equals cube dimension**. New cubes use about 1.6 surface lanes per dimension unit, rounded to a whole number with a minimum of four lanes: level 5 has an 8 × 8 lane grid on each face. Earlier saved boards retain their original grid.
 - New games start at **5 × 5**. Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension. Saved games resume at their current dimension.
 - Ordinary paths have one arrowhead. Green-to-yellow paths have two: clicking the green half leads with the green end; clicking the yellow half leads with the yellow end. The split follows distance along the line, including bends and face crossings.
-- **Yellow slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Thick yellow strokes have shallow rounded corner joins and rounded ends.
+- **Magenta slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Thick magenta strokes have shallow rounded corner joins and rounded ends.
 - **Light-blue double chevrons** are fixed cell markers. When a moving line's leading tip reaches one, it turns in the marked direction. Lines keep moving through any number of edges and redirectors until they hit an obstacle or leave an unmarked edge.
 - **Purple chevrons with a dot** redirect the leading tip, then flip 180 degrees on each pass, including straight-through passes and repeat visits. Successful exits keep the flips; a collision unwinds them as the line rolls back. Their current directions are saved with the board.
 - New boards mix ordinary paths with long winding arrows of **3–75 cells**. Random turns, mixed directions, and edge crossings create dependency chains, so most arrows need another path cleared first. Small gaps are allowed.
@@ -85,7 +85,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 - A chosen endpoint is removable only when its complete routed exit is clear, including other faces. Its tail follows the same bends, redirectors, and creases. Hints choose an available endpoint; keyboard Enter uses that same direction.
 - The cube is translucent: near-face paths are black and far-face paths show through as pale silhouettes. Rotate to interact with a far face.
 - A line's first blocked attempt keeps its original color until contact, turns red with only a short tick, and quickly slides back along its route. It stays red afterward, including after reloading. Successful exits play a swoosh. Hints temporarily highlight the selected endpoint in purple; restarting or choosing a new board clears red marks. A collision does not remove any arrows or increment the move count. There is no move limit or failure timer.
-- Clear all arrows to unlock the next dimension. At dimension 64, completing a board offers another newly generated 64 × 64 puzzle.
+- Clear all arrows to unlock the next level. At dimension 64, completing a board offers another newly generated 64 × 64 puzzle.
 
 ## Controls
 
@@ -157,3 +157,5 @@ Two-ended arrows keep solid green and yellow across the outer 45% of each end, w
 The color wheel is provided by [iro.js](https://iro.js.org/), bundled locally under MPL-2.0. Its license is included in `public/licenses/iro.js-LICENSE.txt`; no library source modifications are made.
 
 The app icon uses a close-up of the three-face cube corner with large arrow paths. The artwork is stored in `assets/app-icon/source-corner.png`; run `python scripts/build-icons.py` to export the PNG sizes, full-bleed maskable icon, and favicon. Icon filenames change with this artwork so browsers can fetch the new images.
+
+Completing a level opens a You win! screen with the cleared level and arrow count, a trophy, full-screen confetti, and a short synthesized trumpet fanfare. Next level advances to the next puzzle; at level 64, Play again starts a fresh puzzle at the maximum size. Restoring a completed save does not replay the celebration. Sound follows the audio setting; confetti respects reduced motion and stops when the win screen closes.

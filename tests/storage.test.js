@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadProgress, saveProgress, normalizeProgress, STORAGE_KEY } from '../src/storage.js';
-import { DEFAULT_THEME } from '../src/theme.js';
+import { DEFAULT_THEME, THEME_VERSION } from '../src/theme.js';
 
-const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto', crashes: 0, resets: { count: 4, nextAt: null }, theme: { ...DEFAULT_THEME } });
+const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto', crashes: 0, resets: { count: 4, nextAt: null }, themeVersion: THEME_VERSION, theme: { ...DEFAULT_THEME } });
 test('progress round trips the puzzle seed, removed paths, dimension, and settings', () => {
   const values = new Map();
   globalThis.localStorage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
@@ -52,9 +52,9 @@ test('legacy saves retain their original generator, seed, dimension, and removed
   let stored = JSON.stringify(legacy);
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   const restored = loadProgress();
-  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null }, theme: { ...DEFAULT_THEME } });
+  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null }, themeVersion: THEME_VERSION, theme: { ...DEFAULT_THEME } });
   assert.equal(saveProgress(restored), true);
-  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null }, theme: { ...DEFAULT_THEME } });
+  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null }, themeVersion: THEME_VERSION, theme: { ...DEFAULT_THEME } });
 });
 test('current generator version round trips without changing the existing storage schema or key', () => {
   let stored;
@@ -163,4 +163,18 @@ test('old life and sixth-crash saves migrate to four resets and zero hearts on t
   assert.equal(restored.seed, progress.seed);
   assert.deepEqual(restored.removed, progress.removed);
   assert.equal(restored.lives, undefined, 'do not retain two competing resource balances');
+});
+
+
+test('the former yellow edge default upgrades once while custom and newly chosen yellow colors survive', () => {
+  let stored = JSON.stringify({ version: 1, ...valid(), themeVersion: undefined, theme: { ...DEFAULT_THEME, edge: '#ffff00' } });
+  globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
+  const restored = loadProgress();
+  assert.equal(restored.theme.edge, '#b000a7');
+  assert.deepEqual(restored.removed, valid().removed);
+  assert.equal(restored.themeVersion, THEME_VERSION);
+  assert(saveProgress({ ...restored, theme: { ...restored.theme, edge: '#ffff00' } }));
+  assert.equal(loadProgress().theme.edge, '#ffff00', 'a player can intentionally select yellow after the default changes');
+  stored = JSON.stringify({ version: 1, ...valid(), themeVersion: undefined, theme: { ...DEFAULT_THEME, edge: '#00ffaa' } });
+  assert.equal(loadProgress().theme.edge, '#00ffaa');
 });
