@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACE_BASIS } from './cube-surface.js';
 
 const EXTENT = 1.028;
-const WIDTH = 0.05; // A bold band, about 2.4 times the previous stroke width.
+const WIDTH = 0.0425; // Slightly slimmer while retaining a bold, readable band.
 const CORNER = 0.10; // Keep the wider band's inner corner smooth and shallow.
 
 /** Smooth connected yellow corners and cap isolated ends, in cube coordinates. */
