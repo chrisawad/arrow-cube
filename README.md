@@ -128,7 +128,7 @@ Run the installable local build with:
 pnpm app
 ```
 
-On the laptop hosting the game, open **http://localhost:4173/** in Chrome or Edge. This runs entirely on your machine. The existing development server at port 5173 can keep running separately. The production build includes the manifest, app icons, and offline worker. The Install control appears once the browser makes an install prompt available; Install help explains unavailable states.
+On the laptop hosting the game, open **http://localhost:4173/** in Chrome or Edge. This runs entirely on your machine. The existing development server at port 5173 can keep running separately. The production build includes the manifest, app icons, and offline worker. A compact Get the app promotion is visible on the main screen from the first load. Its Install button appears once the browser makes a prompt available; otherwise Install help opens the existing installation guide. It disappears after confirmed installation and in standalone app windows. Settings retains the same install controls.
 
 Installation requires **HTTPS** or a loopback address such as `localhost`. The HTTP LAN address `http://riva-laptop:5173/` can play the game, but cannot offer the normal PWA installation flow. On another device, use a trusted HTTPS connection to this local server; `localhost` on a phone refers to the phone itself. An embedded preview may not support installation, so open the game in the device's full browser. Installation remains controlled by the browser.
 
@@ -155,3 +155,5 @@ On touch screens, twist two fingers to rotate the cube in the screen plane. This
 Two-ended arrows keep solid green and yellow across the outer 45% of each end, with a short color transition in the center 10%. The same color range applies to static arrows, movement animations, and the Help symbol. Slide edges currently use magenta, with the existing background fade and arrow-over-edge draw order.
 
 The color wheel is provided by [iro.js](https://iro.js.org/), bundled locally under MPL-2.0. Its license is included in `public/licenses/iro.js-LICENSE.txt`; no library source modifications are made.
+
+The app icon uses a close-up of the three-face cube corner with large arrow paths. The artwork is stored in `assets/app-icon/source-corner.png`; run `python scripts/build-icons.py` to export the PNG sizes, full-bleed maskable icon, and favicon. Icon filenames change with this artwork so browsers can fetch the new images.

@@ -1,4 +1,4 @@
-"""Export the exact gameplay screenshot crop to install and browser icons.
+"""Export the close-up cube-corner artwork to install and browser icons.
 
 Run with Python and Pillow: python scripts/build-icons.py
 This is an authoring helper; normal builds use the checked-in PNG/ICO files.
@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "assets" / "app-icon" / "source.png"
+SOURCE = ROOT / "assets" / "app-icon" / "source-corner.png"
 OUTPUT = ROOT / "public" / "icons"
 
 with Image.open(SOURCE) as original:
@@ -18,12 +18,11 @@ with Image.open(SOURCE) as original:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for size in (32, 180, 192, 512):
         artwork.resize((size, size), Image.Resampling.LANCZOS).save(
-            OUTPUT / f"arrow-cube-game-{size}.png", optimize=True)
-    # Preserve the screenshot pixels, adding matching background padding only
-    # for launchers that crop icons into circles or other platform shapes.
-    maskable = Image.new("RGB", (512, 512), artwork.getpixel((0, 0)))
-    maskable.paste(artwork.resize((400, 400), Image.Resampling.LANCZOS), (56, 56))
-    maskable.save(OUTPUT / "arrow-cube-game-maskable-512.png", optimize=True)
+            OUTPUT / f"arrow-cube-corner-{size}.png", optimize=True)
+    # The important three-face junction stays in the central safe zone. Let
+    # the surrounding paths bleed to the edge under any launcher mask.
+    artwork.resize((512, 512), Image.Resampling.LANCZOS).save(
+        OUTPUT / "arrow-cube-corner-maskable-512.png", optimize=True)
     artwork.save(ROOT / "public" / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
-print("Exported screenshot icons, a maskable icon, and a multi-size favicon.")
+print("Exported close-up corner icons, a maskable icon, and a multi-size favicon.")

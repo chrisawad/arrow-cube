@@ -15,16 +15,18 @@ class Element extends EventTarget {
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function harness(t, { secure = true, embedded = false, installed = false, modern,
-  production = false, serviceWorker, readyState = 'complete' } = {}) {
+  production = false, serviceWorker, readyState = 'complete', iosStandalone = false } = {}) {
   const elements = new Map(['install', 'install-help', 'install-dialog', 'install-confirm',
-    'install-status', 'install-guidance', 'install-offline'].map(id => [id, new Element()]));
+    'install-status', 'install-guidance', 'install-offline', 'install-main', 'install-main-help',
+    'install-promo', 'install-promo-detail'].map(id => [id, new Element()]));
   const win = new EventTarget();
   win.isSecureContext = secure; win.self = win; win.top = embedded ? {} : win;
-  const nav = {};
+  const nav = { standalone: iosStandalone };
+  const display = new EventTarget(); display.matches = installed;
   if (modern) nav.install = modern;
   if (serviceWorker) nav.serviceWorker = serviceWorker;
   const globals = { window: win, navigator: nav, document: { readyState, getElementById: id => elements.get(id) },
-    matchMedia: () => ({ matches: installed }) };
+    matchMedia: () => display };
   for (const [key, value] of Object.entries(globals)) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { value, writable: true, configurable: true });
@@ -33,7 +35,7 @@ function harness(t, { secure = true, embedded = false, installed = false, modern
   const messages = [];
   const cleanup = setupInstall(elements.get('install'), message => messages.push(message), { production });
   t.after(cleanup);
-  return { win, messages, cleanup, get: id => elements.get(id) };
+  return { win, display, messages, cleanup, get: id => elements.get(id) };
 }
 function offer(win, { prompt = () => Promise.resolve(), choice = Promise.resolve({ outcome: 'dismissed' }) } = {}) {
   const event = new Event('beforeinstallprompt', { cancelable: true });
@@ -156,7 +158,64 @@ test('standalone apps suppress installation even if another prompt is offered', 
   const h = harness(t, { installed: true });
   assert.equal(h.get('install').hidden, true);
   assert.equal(h.get('install-help').hidden, true);
+  assert.equal(h.get('install-promo').hidden, true);
+  assert.equal(h.get('install-main').hidden, true);
+  assert.equal(h.get('install-main-help').hidden, true);
   assert.equal(offer(h.win).defaultPrevented, false);
+});
+
+test('the main-screen promotion appears immediately, with help until a usable prompt is offered', t => {
+  const h = harness(t);
+  assert.equal(h.get('install-promo').hidden, false);
+  assert.equal(h.get('install-main').hidden, true);
+  assert.equal(h.get('install-main-help').hidden, false);
+  h.get('install-main-help').click();
+  assert.equal(h.get('install-dialog').open, true);
+  let prompts = 0;
+  offer(h.win, { prompt: () => { prompts++; return Promise.resolve(); } });
+  assert.equal(prompts, 0, 'show the promotion without opening browser consent automatically');
+  assert.equal(h.get('install-main').hidden, false);
+  assert.equal(h.get('install-main-help').hidden, true);
+});
+
+test('main-screen installation keeps direct click activation and hides the entire promotion on appinstalled', async t => {
+  const h = harness(t);
+  let clicking = false, calls = 0;
+  offer(h.win, { prompt() { assert(clicking); calls++; return Promise.resolve(); }, choice: Promise.resolve({ outcome: 'accepted' }) });
+  clicking = true; h.get('install-main').click(); clicking = false;
+  assert.equal(h.get('install-main').getAttribute('aria-disabled'), 'true');
+  h.get('install').click(); assert.equal(calls, 1, 'all install controls share one pending request');
+  await flush();
+  assert.equal(h.get('install-promo').hidden, false, 'accepting a request is not yet confirmation');
+  assert.match(h.get('install-promo-detail').textContent, /Finish/);
+  h.win.dispatchEvent(new Event('appinstalled'));
+  assert.equal(h.get('install-promo').hidden, true);
+  assert.equal(h.get('install-main').hidden, true);
+  assert.equal(h.get('install-main-help').hidden, true);
+});
+
+test('LAN pages keep main-screen installation help without a nonfunctional install action', t => {
+  const h = harness(t, { secure: false });
+  assert.equal(h.get('install-promo').hidden, false);
+  assert.equal(h.get('install-main').hidden, true);
+  assert.equal(h.get('install-main-help').hidden, false);
+  assert.match(h.get('install-promo-detail').textContent, /secure link/);
+  h.get('install-main-help').click(); assert.equal(h.get('install-dialog').open, true);
+});
+
+test('switching to standalone mode removes the promotion, including iOS app launches', t => {
+  const h = harness(t);
+  h.display.matches = true;
+  const change = new Event('change'); change.matches = true; h.display.dispatchEvent(change);
+  assert.equal(h.get('install-promo').hidden, true);
+  assert.equal(offer(h.win).defaultPrevented, false);
+  h.win.dispatchEvent(new Event('pageshow'));
+  assert.equal(h.get('install-main-help').hidden, true);
+});
+
+test('iOS standalone launches start without any install promotion', t => {
+  const h = harness(t, { iosStandalone: true });
+  assert.equal(h.get('install-promo').hidden, true);
 });
 
 test('offline setup is production-only and is not required to show a browser-provided install prompt', t => {

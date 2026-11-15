@@ -4,9 +4,9 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta id="theme-color" name="theme-color" content="#e2f1f8"><meta name="description" content="Untangle a rotating cube of arrows. Every puzzle is solvable. Play, grow, and pick up right where you left off.">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="./icons/arrow-cube-game-32.png" type="image/png" sizes="32x32">
-  <link rel="icon" href="./icons/arrow-cube-game-192.png" type="image/png" sizes="192x192">
-  <link rel="apple-touch-icon" href="./icons/arrow-cube-game-180.png" sizes="180x180">
+  <link rel="icon" href="./icons/arrow-cube-corner-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="./icons/arrow-cube-corner-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icons/arrow-cube-corner-180.png" sizes="180x180">
   <link rel="stylesheet" href="/src/style.css">
   <title>Arrow Cube — A little room to think</title>
 </head>
@@ -16,7 +16,7 @@
       <aside class="sidebar">
         <section class="level-card" aria-label="Game progress">
           <div class="level-heading">
-            <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-game-192.png" width="32" height="32" alt=""><span class="brand-name">ARROW <span>CUBE</span></span></a>
+            <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-corner-192.png" width="32" height="32" alt=""><span class="brand-name">ARROW <span>CUBE</span></span></a>
             <span class="level-title">Level <b id="level">5</b></span>
           </div>
           <div class="completion-row">
@@ -28,6 +28,12 @@
             <button id="reset-tokens" class="reset-tokens" type="button" aria-label="4 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
           </div>
           <progress id="reset-recharge-progress" class="sr-only" max="100" value="0" aria-label="Next reset recharge" hidden></progress>
+          <div id="install-promo" class="install-promo" hidden>
+            <img src="./icons/arrow-cube-corner-192.png" width="36" height="36" alt="">
+            <div class="install-promo-copy"><strong>Get the app</strong><span id="install-promo-detail">Full screen. Play offline.</span></div>
+            <button id="install-main" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>Install</button>
+            <button id="install-main-help" type="button" aria-haspopup="dialog" aria-controls="install-dialog" hidden>Install help</button>
+          </div>
         </section>
       </aside>
       <section class="play-area" aria-label="Arrow cube puzzle">

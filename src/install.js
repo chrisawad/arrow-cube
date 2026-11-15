@@ -6,14 +6,19 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const status = document.getElementById('install-status');
   const guidance = document.getElementById('install-guidance');
   const offlineStatus = document.getElementById('install-offline');
-  const buttons = [button, dialogButton].filter(Boolean);
+  const mainButton = document.getElementById('install-main');
+  const mainHelp = document.getElementById('install-main-help');
+  const promo = document.getElementById('install-promo');
+  const promoDetail = document.getElementById('install-promo-detail');
+  const buttons = [button, dialogButton, mainButton].filter(Boolean);
   const secure = window.isSecureContext === true;
   const embedded = window.self !== window.top;
   const modernInstall = secure && !embedded && typeof navigator.install === 'function';
   const controller = new AbortController();
   const options = { signal: controller.signal };
   let deferredPrompt = null, pending = false, accepted = false, message = '';
-  let installed = globalThis.matchMedia?.('(display-mode: standalone)')?.matches || navigator.standalone === true;
+  const appDisplay = globalThis.matchMedia?.('(display-mode: standalone)');
+  let installed = appDisplay?.matches || navigator.standalone === true;
   let offline = !secure ? 'Offline play needs a secure connection.'
     : !production ? 'Offline play is not enabled for this preview. Use the full app address for offline play.'
       : !('serviceWorker' in navigator) ? 'This browser does not provide offline app support.' : 'Preparing offline play…';
@@ -26,6 +31,12 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       else control.removeAttribute('aria-disabled');
     }
     if (helpButton) helpButton.hidden = installed || ready;
+    if (promo) promo.hidden = installed;
+    if (mainHelp) mainHelp.hidden = installed || ready;
+    if (promoDetail) promoDetail.textContent = pending ? 'Finish in your browser.'
+      : accepted ? 'Finish the browser confirmation.'
+        : !secure ? 'Use a secure link to install.'
+          : embedded ? 'Install from your browser.' : 'Full screen. Play offline.';
     let title, detail;
     if (installed) {
       title = 'Arrow Cube is installed or running as an app.';
@@ -55,9 +66,17 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   }
   function announce(text) { message = text; update(); notify(text); }
   update();
-  helpButton?.addEventListener('click', () => {
+  function openHelp() {
     update();
     if (helpDialog && !helpDialog.open) helpDialog.showModal();
+  }
+  for (const control of [helpButton, mainHelp].filter(Boolean)) control.addEventListener('click', openHelp, options);
+  appDisplay?.addEventListener?.('change', event => {
+    if (event.matches) { installed = true; deferredPrompt = null; update(); }
+  }, options);
+  window.addEventListener('pageshow', () => {
+    if (appDisplay?.matches || navigator.standalone === true) { installed = true; deferredPrompt = null; }
+    update();
   }, options);
   window.addEventListener('beforeinstallprompt', event => {
     if (!secure || embedded || installed) return;
