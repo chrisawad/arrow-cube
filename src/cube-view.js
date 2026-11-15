@@ -403,16 +403,19 @@ export class CubeView {
     this.featureEdges = new THREE.Group();
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
       const material = new THREE.MeshBasicMaterial({ color: '#939ba6', transparent: true, opacity: 1, depthWrite: false });
+      const backColor = new THREE.Color('#939ba6'), frontColor = new THREE.Color('#68737f');
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {
-        // An edge belongs to both faces: keep it bright if either face is
-        // visible. Fade gently as rotation takes both faces behind the cube.
+        // An edge belongs to both faces. Make it solid as soon as either face
+        // turns toward the camera; keep the far-side band faint and lighter.
         camera.getWorldPosition(eye);
         mesh.worldToLocal(eye).sub(center).normalize();
         const facing = Math.max(eye.dot(normalA), eye.dot(normalB));
-        material.opacity = THREE.MathUtils.lerp(0.15, 1, THREE.MathUtils.smoothstep(facing, -0.08, 0.12));
+        const visible = THREE.MathUtils.smoothstep(facing, -0.12, 0);
+        material.opacity = THREE.MathUtils.lerp(0.15, 1, visible);
+        material.color.copy(backColor).lerp(frontColor, visible);
       };
       this.featureEdges.add(mesh);
     }
