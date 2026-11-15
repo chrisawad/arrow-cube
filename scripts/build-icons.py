@@ -18,7 +18,7 @@ with Image.open(SOURCE) as original:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     for size in (32, 180, 192, 512):
         artwork.resize((size, size), Image.Resampling.LANCZOS).save(
-            OUTPUT / f"arrow-cube-{size}.png", optimize=True)
+            OUTPUT / f"arrow-cube-v2-{size}.png", optimize=True)
     artwork.save(ROOT / "public" / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
 print("Exported 32, 180, 192, and 512px PNG icons and a multi-size favicon.")
