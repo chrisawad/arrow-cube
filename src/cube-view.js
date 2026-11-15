@@ -643,8 +643,10 @@ export class CubeView {
 
   bindInput() {
     const options = { signal: this.events.signal };
+    let pendingTap = null;
     this.canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
+      pendingTap = null;
       this.canvas.focus({ preventScroll: true });
       this.canvas.setPointerCapture(event.pointerId);
       const now = performance.now();
@@ -710,8 +712,7 @@ export class CubeView {
         remaining.startX = remaining.x; remaining.startY = remaining.y; remaining.dragged = true;
       }
       if (event.type === 'pointerup' && !pointer.dragged) {
-        const move = this.pickMove(event.clientX, event.clientY);
-        if (move !== null) this.onSelect(move.id, move.reverse);
+        pendingTap = { x: event.clientX, y: event.clientY };
       }
       // Holding still before release is a deliberate stop, rather than a fling.
       if (event.type !== 'pointerup' || performance.now() - pointer.lastMoveTime > 100) this.velocity.x = this.velocity.y = 0;
@@ -720,6 +721,15 @@ export class CubeView {
     this.canvas.addEventListener('pointerup', release, options);
     this.canvas.addEventListener('pointercancel', release, options);
     this.canvas.addEventListener('lostpointercapture', release, options);
+    this.canvas.addEventListener('click', () => {
+      const tap = pendingTap;
+      pendingTap = null;
+      if (!tap) return;
+      // Opening a modal from pointerup lets a touch-generated click land on
+      // a newly visible button. Activate only after the click target is fixed.
+      const move = this.pickMove(tap.x, tap.y);
+      if (move !== null) this.onSelect(move.id, move.reverse);
+    }, options);
     this.canvas.addEventListener('wheel', event => {
       event.preventDefault();
       this.zoom = clamp(this.zoom * Math.exp(-event.deltaY * 0.001), 0.65, 2.2);

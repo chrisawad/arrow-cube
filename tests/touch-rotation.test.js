@@ -32,6 +32,7 @@ test('a two-finger clockwise twist turns the cube in screen space while pinching
   close(axis.x, 0); close(axis.y, -1); close(axis.z, 0);
   h.send('pointerup', 2, 100, 250);
   h.send('pointerup', 1, 100, 100);
+  h.send('click', 1, 100, 100);
   assert.deepEqual(h.selected, [], 'a two-finger gesture never releases an arrow');
   close(h.view.velocity.x + h.view.velocity.y, 0);
 });
@@ -70,6 +71,7 @@ test('nearly touching fingers do not cause a twist and canceled capture never se
   close(h.view.cube.quaternion.angleTo(new THREE.Quaternion()), 0);
   h.send('lostpointercapture', 2, 94, 100);
   h.send('pointerup', 1, 100, 100);
+  h.send('click', 1, 100, 100);
   assert.deepEqual(h.selected, []);
 });
 
@@ -77,10 +79,16 @@ test('a single tap still selects an arrow, and ordinary dragging still rotates',
   const h = fixture();
   h.send('pointerdown', 1, 100, 100);
   h.send('pointerup', 1, 100, 100);
+  assert.deepEqual(h.selected, [], 'pointerup cannot open a modal before the browser targets its click');
+  h.send('lostpointercapture', 1, 100, 100);
+  h.send('click', 1, 100, 100);
   assert.deepEqual(h.selected, [[17, false]]);
+  h.send('click', 1, 100, 100);
+  assert.equal(h.selected.length, 1, 'one tap cannot activate an arrow twice');
   h.send('pointerdown', 1, 100, 100);
   h.send('pointermove', 1, 130, 125);
   h.send('pointerup', 1, 130, 125);
+  h.send('click', 1, 130, 125);
   assert.equal(h.selected.length, 1);
   assert(h.view.cube.quaternion.angleTo(new THREE.Quaternion()) > 0);
 });
