@@ -528,8 +528,8 @@ test('successful releases are unlimited and winning resets crashes without reple
   assert.equal(h.celebration.plays, 1);
   assert.equal(h.sounds.win, 1);
   assert.equal(h.get('win-level').textContent, 'Level 5 complete');
-  assert.match(h.get('win-description').textContent, new RegExp(`All ${count} arrows cleared`));
-  assert.equal(h.get('next-level').firstChild.textContent, 'Next level ');
+  assert.equal(h.get('win-description').textContent, `All ${count} arrows cleared.`);
+  assert.equal(h.get('next-level').firstChild.textContent, 'Next level · 6 ');
   h.get('win-dialog').close();
   const stops = h.celebration.stops;
   h.get('hint').click();
@@ -548,8 +548,7 @@ test('restored wins stay quiet and the largest level offers a fresh level-64 puz
   const h = boot(saveFor(64, 17, { removed: savedPuzzle.arrows.map(arrow=>arrow.id), moves: savedPuzzle.arrows.length }), { puzzleFactory: lifePuzzle });
   assert.equal(h.get('win-dialog').open, true);
   assert.equal(h.sounds.win, 0); assert.equal(h.celebration.plays, 0);
-  assert.equal(h.get('next-level').firstChild.textContent, 'Play again ');
-  assert.match(h.get('win-next').textContent, /largest cube/);
+  assert.equal(h.get('next-level').firstChild.textContent, 'Play again · Level 64 ');
   h.get('next-level').click();
   assert.equal(h.state().size, 64); assert.notEqual(h.state().seed, 17);
   assert.equal(h.state().removed.length, 0);

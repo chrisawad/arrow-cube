@@ -92,9 +92,8 @@ function start(size,boardSeed=seed(),restore=null){
 function showWin(celebrate=false){
   const maxed=puzzle.size>=64, dialog=$('win-dialog'), opening=!dialog.open;
   $('win-level').textContent=`Level ${puzzle.size} complete`;
-  $('win-description').textContent=`All ${puzzle.arrows.length} arrows cleared. You untangled the whole ${puzzle.size} × ${puzzle.size} cube!`;
-  $('win-next').textContent=maxed?'You mastered the largest cube. Try a fresh puzzle!':`Next up: Level ${puzzle.size+1}`;
-  $('next-level').firstChild.textContent=maxed?'Play again ':'Next level ';
+  $('win-description').textContent=`All ${puzzle.arrows.length} arrows cleared.`;
+  $('next-level').firstChild.textContent=maxed?'Play again · Level 64 ':`Next level · ${puzzle.size+1} `;
   if(opening)dialog.showModal();
   if(celebrate&&opening){audio.win();winCelebration.play();}
 }
