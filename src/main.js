@@ -4,7 +4,7 @@ import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
 import {setupInstall} from './install.js';
-import {MAX_HEARTS,MAX_RESETS,recoverResets,restoreResets,spendReset,normalizeCrashes,recoveryCountdown} from './lives.js';
+import {MAX_HEARTS,MAX_RESETS,recoverResets,restoreResets,spendReset,normalizeCrashes,recoveryCountdown,resetRechargeFraction} from './lives.js';
 
 const $ = id => document.getElementById(id);
 let puzzle, removed = new Set(), blocked = new Set(), moves = 0, busy = false, hintId = null, hintReverse = false, generation = 0, toastTimer;
@@ -18,21 +18,29 @@ let view;
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
 function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
-function paintResources(){
+function paintResources(now){
   const hearts=Math.max(0,MAX_HEARTS-crashes);
+  const recharge=resetRechargeFraction(resets,now);
   document.querySelectorAll('[data-heart]').forEach((icon,index)=>icon.classList.toggle('empty',index>=hearts));
-  document.querySelectorAll('[data-reset]').forEach((icon,index)=>icon.classList.toggle('empty',index%MAX_RESETS>=resets.count));
+  document.querySelectorAll('[data-reset]').forEach((icon,index)=>{
+    const slot=index%MAX_RESETS;
+    icon.classList.toggle('empty',slot>=resets.count);
+    icon.classList.toggle('recharging',resets.nextAt!==null&&slot===resets.count);
+    icon.style.setProperty('--reset-unfilled',`${((1-recharge)*100).toFixed(2)}%`);
+  });
   $('hearts').setAttribute('aria-label',`${hearts} ${hearts===1?'heart':'hearts'} remaining`);
   $('reset-tokens').setAttribute('aria-label',`${resets.count} ${resets.count===1?'reset':'resets'} available. Refill hearts.`);
+  $('reset-tokens').title=recoveryCountdown(resets,now);
   $('loss-resets').setAttribute('aria-label',`${resets.count} ${resets.count===1?'reset':'resets'} available`);
+  $('reset-recharge-progress').hidden=resets.nextAt===null;
+  $('reset-recharge-progress').value=Math.round(recharge*100);
+  $('reset-recharge-progress').setAttribute('aria-valuetext',recoveryCountdown(resets,now));
 }
 function refreshResources(save = true){
   const now=Date.now(), recovered=recoverResets(resets,now);
   const changed=recovered.count!==resets.count||recovered.nextAt!==resets.nextAt;
   resets=recovered;
-  paintResources();
-  $('reset-recharge').textContent=recoveryCountdown(resets,now);
-  $('reset-recharge').hidden=resets.nextAt===null;
+  paintResources(now);
   $('choose-size').disabled=crashes>=MAX_HEARTS;
   $('hint').disabled=crashes>=MAX_HEARTS;
   $('use-reset').hidden=resets.count===0;

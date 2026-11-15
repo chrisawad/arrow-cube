@@ -144,3 +144,9 @@ Then open **http://localhost:4173/** in Chrome on the phone. This routes only th
 The offline worker is enabled only in production builds. Saved progress is separate for each address and port, so opening the production address starts a separate save from the development address.
 
 Open the production game online once and allow its service worker to install before going offline. It precaches the app shell and bundled assets, so gameplay and local saves can continue without a connection. Updates use the normal service-worker lifecycle and take over after the previous app is closed; they do not force a reload during a puzzle.
+
+## Help and recharge indicators
+
+Help pairs the game symbols with short instructions based on ASD-STE100 writing principles: one action per instruction, active voice, and consistent game terms. The guide covers two-ended arrows, blue fixed turn markers, purple reversing turn markers, yellow wrap edges, crashes, resets, and far-side arrows. Game terms such as arrowhead, turn marker, reset, tap, and drag refer to the controls and objects shown in the game.
+
+The next empty reset icon fills from bottom to top as its three-hour recharge interval passes. Other empty reset icons stay unfilled. Hover over the reset tokens for the remaining time, or open the refill screen to see its clock. The recharge value is also available through a native progress element for assistive technology.

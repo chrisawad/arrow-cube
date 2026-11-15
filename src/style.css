@@ -19,10 +19,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sidebar { position: fixed; inset: var(--top) auto auto var(--left); z-index: 2; inline-size: min(20rem, calc(100% - var(--left) - var(--right))); pointer-events: none; }
 .level-card { pointer-events: auto; border: 1px solid #fff; border-radius: 1rem; padding: .65rem .85rem .25rem; background: #f4fbfff2; box-shadow: 0 5px 25px #52778b12; }
 .level-heading { display: flex; align-items: center; gap: .5rem; min-inline-size: 0; }
-.brand { display: block; flex: none; border-radius: .4rem; }
+.brand { display: flex; align-items: center; gap: .4rem; flex: none; border-radius: .4rem; color: var(--ink); text-decoration: none; }
 .brand img { display: block; inline-size: 32px; block-size: 32px; border-radius: .4rem; }
-.level-title { font-size: .95rem; white-space: nowrap; }
+.brand-name { font-size: .8rem; font-weight: 850; letter-spacing: -.4px; white-space: nowrap; }
+.brand-name > span { font-weight: 450; }
+.level-title { margin-inline-start: auto; font-size: .85rem; white-space: nowrap; }
 .level-title b { font-weight: 750; }
+.completion-row { display: flex; align-items: center; gap: .6rem; margin-block-start: .4rem; }
+.completion-row .progress-track { flex: 1; min-inline-size: 0; margin-block-start: 0; }
 .progress-summary { display: flex; align-items: baseline; gap: .35rem; margin-inline-start: auto; color: #607986; font-size: .65rem; white-space: nowrap; }
 .progress-summary b { color: var(--purple); font-size: .8rem; margin-inline-start: .25rem; }
 .progress-track { block-size: 4px; background: #d9e4ed; border-radius: 4px; overflow: clip; margin-block-start: .5rem; }
@@ -37,8 +41,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .reset-tokens svg, .reset-icons svg { inline-size: 21px; block-size: 21px; stroke: currentColor; stroke-width: 1.7; fill: #e8e6ff; stroke-linecap: round; stroke-linejoin: round; }
 .reset-tokens svg.empty, .reset-icons svg.empty { color: #9aabba; fill: none; stroke-dasharray: 2 2; }
 .reset-tokens svg path, .reset-icons svg path { fill: none; stroke-dasharray: none; }
+.reset-fill { opacity: 0; stroke: none; }
+.recharging .reset-fill { opacity: 1; fill: #b8b2ff; clip-path: inset(var(--reset-unfilled, 100%) 0 0 0) fill-box; }
+.sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .recharge { display: block; color: #607986; font-size: .65rem; font-variant-numeric: tabular-nums; }
-#reset-recharge { text-align: end; margin-block: -.15rem .5rem; }
 .play-area { position: fixed; inset: 0; block-size: 100dvh; z-index: 0; }
 #cube-stage { position: absolute; inset: 0; touch-action: none; }
 #cube-stage:focus { outline: none; }
@@ -105,6 +111,27 @@ dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:2
 .settings-footer { margin-block-start: 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 .reset-icons { justify-content: center; color: #6258d5; gap: .6rem; margin-block: 1.25rem .5rem; }
 .reset-icons svg { inline-size: 32px; block-size: 32px; }
-#loss-recharge { margin-block: .5rem 1.25rem; }
+.reset-clock { display: flex; align-items: center; justify-content: center; gap: .4rem; margin-block: .5rem 1.25rem; color: #607986; }
+.reset-clock svg { inline-size: 16px; block-size: 16px; flex: none; }
 
 @media (hover: hover) { .toggle[aria-pressed="true"]:hover { background: #5146d9; } }
+
+#help-dialog { inline-size: min(34rem, calc(100% - 1.5rem)); max-block-size: calc(100dvh - 1.5rem); overflow-y: auto; padding: 1.5rem; }
+#help-dialog h2 { margin: .25rem 0 .75rem; font-size: 1.6rem; }
+#help-dialog .help-intro, #help-dialog .help-rule { margin: .35rem 0; color: #435665; font-size: .8rem; line-height: 1.5; }
+.help-legend { list-style: none; padding: 0; margin: 1rem 0; }
+.help-legend li { display: grid; grid-template-columns: 5rem minmax(0, 1fr); align-items: start; gap: .75rem; padding-block: .75rem; border-block-start: 1px solid #dce7ed; }
+.help-symbol { display: block; inline-size: 5rem; block-size: auto; border-radius: .6rem; background: #e7f1f8; }
+.help-marker { background: #263342; }
+.help-legend h3 { margin: 0 0 .2rem; font-size: .8rem; font-weight: 750; }
+#help-dialog .help-legend p { margin: 0; color: #435665; font-size: .75rem; line-height: 1.55; }
+.help-controls { border-block-start: 1px solid #dce7ed; padding-block: .75rem; }
+.help-controls summary { cursor: pointer; font-size: .8rem; color: #525cc4; padding-block: .25rem; }
+#help-dialog .help-controls p { color: #435665; font-size: .75rem; line-height: 1.55; }
+.help-done { position: sticky; inset-block-end: 0; justify-content: center; margin-block-start: .5rem; box-shadow: 0 -.5rem 1rem #f6fbff; }
+@media (max-width: 360px) {
+  #help-dialog { padding: 1.25rem; }
+  .help-legend li { grid-template-columns: 4rem minmax(0, 1fr); gap: .65rem; }
+  .help-symbol { inline-size: 4rem; }
+  .brand-name { font-size: .75rem; }
+}

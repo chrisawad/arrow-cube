@@ -16,16 +16,18 @@
       <aside class="sidebar">
         <section class="level-card" aria-label="Game progress">
           <div class="level-heading">
-            <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-game-192.png" width="32" height="32" alt=""></a>
+            <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-game-192.png" width="32" height="32" alt=""><span class="brand-name">ARROW <span>CUBE</span></span></a>
             <span class="level-title">Level <b id="level">5</b></span>
+          </div>
+          <div class="completion-row">
+            <div class="progress-track" id="completion" role="progressbar" aria-label="Puzzle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
             <span class="progress-summary"><span id="remaining">0</span> left <b id="progress-percent">0%</b></span>
           </div>
-          <div class="progress-track" id="completion" role="progressbar" aria-label="Puzzle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
           <div class="resource-row">
             <div id="hearts" class="hearts" role="img" aria-label="5 hearts remaining"><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg></div>
-            <button id="reset-tokens" class="reset-tokens" type="button" aria-label="3 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
+            <button id="reset-tokens" class="reset-tokens" type="button" aria-label="3 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
           </div>
-          <span id="reset-recharge" class="recharge" hidden></span>
+          <progress id="reset-recharge-progress" class="sr-only" max="100" value="0" aria-label="Next reset recharge" hidden></progress>
         </section>
       </aside>
       <section class="play-area" aria-label="Arrow cube puzzle">
@@ -76,14 +78,59 @@
     <button id="loss-close" class="dialog-close" type="button" aria-label="Close refill prompt">×</button>
     <h2 id="loss-title">Out of hearts.</h2>
     <p id="loss-description">Use a reset to refill all five hearts and keep your progress.</p>
-    <div id="loss-resets" class="reset-icons" role="img" aria-label="3 resets available"><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></div>
-    <p id="loss-recharge" class="recharge">All resets ready</p>
+    <div id="loss-resets" class="reset-icons" role="img" aria-label="3 resets available"><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></div>
+    <p class="reset-clock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg><span id="loss-recharge" class="recharge">All resets ready</span></p>
     <button id="use-reset" class="primary" type="button" autofocus>Use reset · Refill hearts</button>
     <button id="loss-restart" class="secondary" type="button">Restart this puzzle · Free</button>
     <p class="small">One reset recharges every 3 hours. Restarting clears this puzzle’s progress.</p>
   </dialog>
   <dialog id="win-dialog" aria-label="Level cleared"><div class="win-mark" aria-hidden="true">✧</div><h2>Level cleared.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
-  <dialog id="help-dialog" aria-label="How to play"><button class="dialog-close" data-close aria-label="Close">×</button><h2>How to play</h2><p>Drag to rotate. Pinch or scroll to zoom. Tap an arrow to release it.</p><p>Tap a line to send it in its arrowhead’s direction. If another line blocks its route, it hits the obstacle and slides back red.</p><p><strong>Yellow edges</strong> carry moving lines onto the neighboring face in either direction. <strong>Blue double chevrons</strong> are fixed markers: the leading tip turns to follow them.</p><p><strong>Purple chevrons with a dot</strong> turn the leading tip, then flip to point the opposite way. They keep their new direction after a successful exit. If the line crashes, they return to their original directions as it rolls back.</p><p><strong>Green/yellow lines have two arrowheads.</strong> Tap the green half to lead with the green end, or the yellow half to lead with the yellow end. A line keeps moving through every edge and redirector until it slides off an unmarked edge or collides.</p><p>Black and colored lines are on near faces. Pale lines show through from the far side—rotate the cube to reach them. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate, H for a hint, and Enter to release the hinted endpoint.</p><p><strong>Hearts:</strong> each crash costs one heart. A reset refills all five hearts and keeps your progress. You can hold three resets; one recharges every three hours, even while the app is closed. With no hearts or resets, restart the same puzzle for free.</p><p>Your progress is saved on this device. After offline play finishes preparing, the game works without a connection.</p><button class="primary" data-close>Got it</button></dialog>
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <button class="dialog-close" type="button" data-close aria-label="Close help" autofocus>×</button>
+    <h2 id="help-title">How to play</h2>
+    <p class="help-intro">Tap an arrow to move it. Remove all arrows to clear the cube.</p>
+    <p class="help-rule">An arrow moves until it leaves the cube or hits another arrow.</p>
+    <ul class="help-legend">
+      <li>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true">
+          <defs><linearGradient id="help-two-ends" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#37b487"/><stop offset="1" stop-color="#f1c643"/></linearGradient></defs>
+          <path d="M16 19h17v20h24V17h15" fill="none" stroke="url(#help-two-ends)" stroke-width="7" stroke-linejoin="round"/>
+          <path d="m7 19 14-9v18Z" fill="#37b487"/><path d="m81 17-14-9v18Z" fill="#f1c643"/>
+        </svg>
+        <div><h3>Two-ended arrow</h3><p>Tap the green half to move the green end first. Tap the yellow half to move the yellow end first.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m27 15 14 13-14 13m22-26 14 13-14 13" fill="none" stroke="#74ccef" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><h3>Blue turn marker</h3><p>The front end turns in the marker direction. The marker does not change.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m41 15 14 13-14 13" fill="none" stroke="#b64bed" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="28" r="4" fill="#b64bed"/></svg>
+        <div><h3>Purple turn marker</h3><p>The front end turns in the marker direction. The marker then reverses direction. If the arrow leaves the cube, the marker keeps its new direction. After a crash, the marker returns to its previous direction.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m14 16 27-9 32 10v25l-28 9-31-12Zm0 0 31 11 28-10M45 27v24" fill="#e2f1f8" stroke="#748492" stroke-width="1.5" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#a19000" stroke-width="8" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#ffff00" stroke-width="5" stroke-linejoin="round"/><path d="m28 15 0 7 24 8 12-4" fill="none" stroke="#15191f" stroke-width="4" stroke-linejoin="round"/><path d="m69 24-8-2 3 8Z" fill="#15191f"/></svg>
+        <div><h3>Yellow edge</h3><p>The arrow moves around this edge to the next face. The edge works in both directions.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="M69 10v36" stroke="#15191f" stroke-width="7" stroke-linecap="round"/><path d="M12 39h19V22h18" fill="none" stroke="#e16457" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><path d="m61 22-15-9v18Z" fill="#e16457"/></svg>
+        <div><h3>Crash</h3><p>The arrow turns red and moves back. Each crash removes one heart. With no hearts, use a reset or restart the same puzzle.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><circle cx="44" cy="28" r="20" fill="#e8e6ff" stroke="#6258d5" stroke-width="2.5"/><path d="M33 23a12 12 0 1 1-1 10M33 15v10h10" fill="none" stroke="#6258d5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><h3>Reset</h3><p>A reset restores five hearts and keeps your progress. You can have three resets. One reset returns every three hours.</p></div>
+      </li>
+      <li>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><rect x="6" y="5" width="76" height="46" rx="5" fill="#c5deeb"/><path d="M17 20h21v17h20" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><path d="m70 37-14-9v18Z" fill="#fff"/></svg>
+        <div><h3>Pale arrow</h3><p>This arrow is on the far side. Turn the cube to select it.</p></div>
+      </li>
+    </ul>
+    <details class="help-controls"><summary>Controls and hints</summary>
+      <p>Drag to turn the cube. Pinch or scroll to change the view size.</p>
+      <p>Select Hint to find a clear path. Hints do not use hearts or resets.</p>
+      <p><strong>Keyboard:</strong> Select the cube. Use the arrow keys to turn it. Press H for a hint. Press Enter to move the selected arrow.</p>
+    </details>
+    <button class="primary help-done" type="button" data-close>Play</button>
+  </dialog>
   <dialog id="install-dialog" aria-labelledby="install-title">
     <button class="dialog-close" type="button" data-close aria-label="Close">×</button>
     <span class="eyebrow">TAKE THE CUBE WITH YOU</span>

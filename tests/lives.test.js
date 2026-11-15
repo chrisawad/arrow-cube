@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recoverResets, restoreResets, spendReset, recoveryCountdown, normalizeCrashes, RESET_RECOVERY_MS as INTERVAL } from '../src/lives.js';
+import { recoverResets, restoreResets, spendReset, recoveryCountdown, normalizeCrashes, resetRechargeFraction, RESET_RECOVERY_MS as INTERVAL } from '../src/lives.js';
 
 const now = 1800000000000;
 
@@ -54,4 +54,13 @@ test('old life balances become at most three reset tokens without erasing a part
   }
   assert.deepEqual(restoreResets({ resets: { count: 1, nextAt: now + INTERVAL }, lives: { count: 5 } }, now),
     { count: 1, nextAt: now + INTERVAL }, 'new saves take precedence over old fields');
+});
+
+test('recharge fill follows the current deadline and stays between empty and full', () => {
+  assert.equal(resetRechargeFraction({ nextAt: null }, now), 0);
+  assert.equal(resetRechargeFraction({ nextAt: now + INTERVAL }, now), 0);
+  assert.equal(resetRechargeFraction({ nextAt: now + INTERVAL / 2 }, now), 0.5);
+  assert.equal(resetRechargeFraction({ nextAt: now }, now), 1);
+  assert.equal(resetRechargeFraction({ nextAt: now - 1 }, now), 1);
+  assert.equal(resetRechargeFraction({ nextAt: now + 2 * INTERVAL }, now), 0);
 });

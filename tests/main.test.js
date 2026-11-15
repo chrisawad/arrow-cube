@@ -15,7 +15,7 @@ const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
 class Element {
   listeners = new Map();
   attributes = new Map();
-  style = {};
+  style = { setProperty(name, value) { this[name] = value; } };
   dataset = {};
   textContent = '';
   value = '';
@@ -552,4 +552,28 @@ test('settings contains working sound, animation, and difficulty controls withou
   assert.equal(h.get('difficulty-dialog').open, true);
   assert.equal(h.state().seed, initial.seed);
   assert.deepEqual(h.state().resets, initial.resets);
+});
+
+test('only the next empty reset icon fills; the tooltip and refill clock track the same deadline', () => {
+  const now = 1800000000000, interval = lifeRules.RESET_RECOVERY_MS;
+  const h = boot(saveFor(5, 41, { resets: { count: 1, nextAt: now + interval / 2 } }), { now });
+  assert.deepEqual(h.resetIcons.map((icon, index) => icon.classes.has('recharging') ? index : -1).filter(i => i >= 0), [1, 4]);
+  assert.equal(h.resetIcons[1].style['--reset-unfilled'], '50.00%');
+  assert.equal(h.get('reset-recharge-progress').value, 50);
+  assert.equal(h.get('reset-recharge-progress').hidden, false);
+  assert.equal(h.get('reset-tokens').title, 'Next reset in 1:30:00');
+  assert.equal(h.get('loss-recharge').textContent, h.get('reset-tokens').title);
+  h.advance(interval / 4);
+  assert.equal(h.resetIcons[1].style['--reset-unfilled'], '25.00%');
+  h.advance(interval / 4);
+  assert.equal(h.state().resets.count, 2);
+  assert.equal(h.resetIcons[1].classes.has('empty'), false);
+  assert.equal(h.resetIcons[1].classes.has('recharging'), false);
+  assert.equal(h.resetIcons[2].classes.has('recharging'), true);
+  assert.equal(h.resetIcons[2].style['--reset-unfilled'], '100.00%');
+  h.advance(interval);
+  assert.equal(h.state().resets.count, 3);
+  assert(h.resetIcons.every(icon => !icon.classes.has('empty') && !icon.classes.has('recharging')));
+  assert.equal(h.get('reset-recharge-progress').hidden, true);
+  assert.equal(h.get('reset-tokens').title, 'All resets ready');
 });

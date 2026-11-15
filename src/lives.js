@@ -38,6 +38,11 @@ export function normalizeCrashes(value) {
   return Number.isSafeInteger(value) && value >= 0 ? Math.min(value, MAX_HEARTS) : 0;
 }
 
+export function resetRechargeFraction(bank, now = Date.now()) {
+  if (bank.nextAt === null) return 0;
+  return Math.max(0, Math.min(1, 1 - (bank.nextAt - now) / RESET_RECOVERY_MS));
+}
+
 export function recoveryCountdown(bank, now = Date.now()) {
   if (bank.nextAt === null) return 'All resets ready';
   const seconds = Math.max(0, Math.ceil((bank.nextAt - now) / 1000));
