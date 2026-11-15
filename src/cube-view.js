@@ -12,8 +12,11 @@ const FACE_ROTATIONS = [
   [0, 0, 0], [0, Math.PI / 2, 0], [0, Math.PI, 0],
   [0, -Math.PI / 2, 0], [-Math.PI / 2, 0, 0], [Math.PI / 2, 0, 0],
 ];
-const INITIAL = new THREE.Quaternion();
-const INITIAL_ZOOM = 1.35;
+const INITIAL = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.40, -0.55, -0.025, 'XYZ'));
+const INITIAL_CORNERS = [];
+for (const x of [-1.024, 1.024]) for (const y of [-1.024, 1.024]) for (const z of [-1.024, 1.024]) {
+  INITIAL_CORNERS.push(new THREE.Vector3(x, y, z).applyQuaternion(INITIAL));
+}
 const INK = '#15191f';
 const HINT = '#5b55e7';
 const BLOCKED = '#e16457';
@@ -234,7 +237,7 @@ export class CubeView {
     this.animations = new Map();
     this.pointers = new Map();
     this.velocity = { x: 0, y: 0 };
-    this.zoom = INITIAL_ZOOM;
+    this.zoom = 1;
     this.framingDistance = 7;
     this.raf = 0;
     this.lastTime = 0;
@@ -327,7 +330,14 @@ export class CubeView {
   }
 
   updateCamera() {
-    this.camera.position.z = this.framingDistance / Math.min(this.camera.aspect, 1) / this.zoom;
+    // Start closer, but leave a 5% screen margin around every corner of the
+    // angled cube. Refit on resize; manual zoom remains relative to that view.
+    const tanY = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const tanX = tanY * this.camera.aspect;
+    const fittedDistance = Math.max(...INITIAL_CORNERS.map(corner => corner.z + Math.max(
+      Math.abs(corner.x) / (tanX * 0.9), Math.abs(corner.y) / (tanY * 0.9))));
+    const closerDistance = this.framingDistance / Math.min(this.camera.aspect, 1) / 1.35;
+    this.camera.position.z = Math.max(closerDistance, fittedDistance) / this.zoom;
     this.camera.updateProjectionMatrix();
     this.schedule();
   }
@@ -335,8 +345,8 @@ export class CubeView {
   setPuzzle(puzzle, removedSet = new Set(), blockedSet = new Set()) {
     this.cancelAnimations(false);
     this.puzzle = puzzle;
-    // Every dimension brings the cube a little closer. The opening zoom then
-    // frames a single face; the player can zoom out for a wider rotated view.
+    // Every dimension brings the cube a little closer, up to the screen-fit
+    // limit that keeps the angled starting view fully visible.
     // Dimension 2 starts at 7 units, and large cubes approach 6.4 units (~9% growth).
     this.framingDistance = 7 - 0.6 * (1 - Math.exp(-Math.max(0, puzzle.size - 2) / 10));
     this.updateCamera();
@@ -542,7 +552,7 @@ export class CubeView {
 
   resetView() {
     this.velocity.x = this.velocity.y = 0;
-    this.zoom = INITIAL_ZOOM;
+    this.zoom = 1;
     this.updateCamera();
     this.orientationTween = { from: this.cube.quaternion.clone(), to: INITIAL.clone(), start: performance.now(), duration: this.reducedMotion ? 0 : 380 };
     this.schedule();
