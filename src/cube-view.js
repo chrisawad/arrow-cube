@@ -402,8 +402,8 @@ export class CubeView {
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
-      const material = new THREE.MeshBasicMaterial({ color: '#939ba6', transparent: true, opacity: 1, depthWrite: false });
-      const backColor = new THREE.Color('#939ba6'), frontColor = new THREE.Color('#7a8592');
+      const material = new THREE.MeshBasicMaterial({ color: '#e59b60', transparent: true, opacity: 1, depthWrite: false });
+      const backColor = new THREE.Color('#e59b60'), frontColor = new THREE.Color('#d96a20');
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 3;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
