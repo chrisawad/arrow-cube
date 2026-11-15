@@ -70,7 +70,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sidebar { inset-inline: var(--left) var(--right); inline-size: min(24rem, calc(100% - var(--left) - var(--right))); margin-inline: auto; }
 }
 @media (max-height: 540px) and (orientation: landscape) {
-  .sidebar { inset-inline: var(--left) auto; inline-size: 15rem; margin-inline: 0; }
+  .sidebar { inset-inline: var(--left) auto; inline-size: 16.5rem; margin-inline: 0; }
   .game-controls { justify-content: end; }
   .hearts svg { inline-size: 16px; block-size: 16px; }
   .reset-tokens svg { inline-size: 18px; block-size: 18px; }
@@ -95,7 +95,7 @@ dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:2
 #loss-dialog .primary { justify-content: center; }
 .secondary { inline-size: 100%; min-block-size: 48px; margin-block-start: .6rem; padding: .75rem; border: 1px solid #c7d5e8; border-radius: .75rem; background: #fff; color: #525cc4; font-size: .85rem; font-weight: 650; }
 .secondary:hover { background: #eeedff; }
-#use-reset[hidden] + #loss-restart { background: var(--purple); color: white; border-color: var(--purple); }
+#use-reset[hidden] + #loss-close { background: var(--purple); color: white; border-color: var(--purple); }
 
 @media (max-width: 700px) { dialog { padding: 1.5rem; } }
 

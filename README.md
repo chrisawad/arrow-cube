@@ -4,9 +4,9 @@ A browser-local 3D arrow puzzle for desktop and touch screens. Rotate the cube, 
 
 The cube canvas fills the viewport, with progress and controls floating above it. Mobile controls respect safe-area insets and changing browser-bar heights. The stylesheet loads from the HTML head so the initial page is styled before the game JavaScript starts.
 
-Each puzzle starts with five hearts. Each crash removes one; the fifth crash opens the loss screen. Successful releases and hints are unlimited. A reset token refills all five hearts while keeping puzzle progress; it can also be used early by tapping the reset icons. Players can hold three reset tokens and recover one every three hours, including time offline. With no hearts or reset tokens, restart the exact same puzzle for free. Starting or restarting a puzzle restores hearts but never refills reset tokens. Saves retain the seed, cleared paths, hearts, reset balance, and recovery deadline. Older life balances migrate to reset tokens capped at three.
+Each puzzle starts with five hearts. Each crash removes one; the fifth crash opens the loss screen. Successful releases and hints are unlimited. A reset token refills all five hearts while keeping puzzle progress; it can also be used early by tapping the reset icons. Players can hold four reset tokens and recover one every three hours, including time offline. With no hearts or reset tokens, choose Go back to wait on the same board, or restart the exact same puzzle for free. An arrow attempt at zero hearts reopens the refill choice. Go back does not change progress, hearts, or the recovery timer. Starting or restarting a puzzle restores hearts but never refills reset tokens. Saves retain the seed, cleared paths, hearts, reset balance, and recovery deadline. Older life balances migrate to reset tokens capped at four.
 
-The compact HUD shows the level, completion percentage and bar, five heart icons, and three reset icons. Only Hint, Help, and Settings remain below the cube. Settings holds difficulty, sound, animation, and installation controls.
+The compact HUD shows the level, completion percentage and bar, five heart icons, and four reset icons. Only Hint, Help, and Settings remain below the cube. Settings holds difficulty, sound, animation, and installation controls.
 
 ## Run
 
@@ -150,3 +150,5 @@ Open the production game online once and allow its service worker to install bef
 Help pairs the game symbols with short instructions based on ASD-STE100 writing principles: one action per instruction, active voice, and consistent game terms. The guide covers two-ended arrows, blue fixed turn markers, purple reversing turn markers, yellow wrap edges, crashes, resets, and far-side arrows. Game terms such as arrowhead, turn marker, reset, tap, and drag refer to the controls and objects shown in the game.
 
 The next empty reset icon fills from bottom to top as its three-hour recharge interval passes. Other empty reset icons stay unfilled. Hover over the reset tokens for the remaining time, or open the refill screen to see its clock. The recharge value is also available through a native progress element for assistive technology.
+
+On touch screens, twist two fingers to rotate the cube in the screen plane. This works together with pinch-to-zoom. Lifting or canceling a finger does not release an arrow or change the current zoom unexpectedly.

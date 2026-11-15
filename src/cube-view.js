@@ -267,7 +267,7 @@ export class CubeView {
     this.canvas.className = 'cube-canvas';
     this.canvas.tabIndex = 0;
     this.canvas.setAttribute('role', 'application');
-    this.canvas.setAttribute('aria-label', '3D arrow puzzle. Drag to rotate, tap an arrow to release it. Arrow keys rotate; plus and minus zoom.');
+    this.canvas.setAttribute('aria-label', '3D arrow puzzle. Drag to rotate. Twist two fingers to turn the cube in the screen plane. Pinch to zoom. Tap an arrow to release it. Arrow keys rotate; plus and minus zoom.');
     Object.assign(this.canvas.style, { display: 'block', width: '100%', height: '100%', touchAction: 'none', cursor: 'grab', userSelect: 'none', webkitUserSelect: 'none' });
     container.appendChild(this.canvas);
     this.cube = new THREE.Group();
@@ -591,10 +591,10 @@ export class CubeView {
     this.schedule();
   }
 
-  // Arguments are radians around screen vertical and horizontal axes.
-  rotateBy(dx, dy) {
+  // The third argument follows a clockwise two-finger twist in screen space.
+  rotateBy(dx, dy, twist = 0) {
     this.orientationTween = null;
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(dy, dx, 0, 'XYZ'));
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(dy, dx, -twist, 'XYZ'));
     this.cube.quaternion.premultiply(q).normalize();
     this.schedule();
   }
@@ -613,6 +613,7 @@ export class CubeView {
       if (this.pointers.size > 1) {
         for (const pointer of this.pointers.values()) pointer.dragged = true;
         this.pinchDistance = this.pointerDistance();
+        this.pinchAngle = this.pointerAngle();
       }
       this.onInteract();
     }, options);
@@ -629,8 +630,17 @@ export class CubeView {
       pointer.x = event.clientX; pointer.y = event.clientY;
       if (this.pointers.size > 1) {
         const distance = this.pointerDistance();
+        const angle = this.pointerAngle();
         if (this.pinchDistance > 1) this.zoom = clamp(this.zoom * distance / this.pinchDistance, 0.65, 2.2);
+        // Ignore nearly coincident fingers, and use the shortest angle across
+        // the -PI/PI boundary so a small twist cannot spin the cube a full turn.
+        if (this.pinchDistance > 8 && distance > 8) {
+          const delta = angle - this.pinchAngle;
+          this.rotateBy(0, 0, Math.atan2(Math.sin(delta), Math.cos(delta)));
+        }
         this.pinchDistance = distance;
+        this.pinchAngle = angle;
+        this.velocity.x = this.velocity.y = 0;
         this.updateCamera();
         return;
       }
@@ -648,6 +658,10 @@ export class CubeView {
       const pointer = this.pointers.get(event.pointerId);
       if (!pointer) return;
       this.pointers.delete(event.pointerId);
+      // Removing one of three fingers changes the active pair. Rebase both
+      // measurements instead of treating that change as a pinch or twist.
+      this.pinchDistance = this.pointerDistance();
+      this.pinchAngle = this.pointerAngle();
       if (!this.pointers.size) this.canvas.style.cursor = 'grab';
       if (this.pointers.size === 1) {
         const remaining = this.pointers.values().next().value;
@@ -682,6 +696,11 @@ export class CubeView {
   pointerDistance() {
     const [a, b] = this.pointers.values();
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  }
+
+  pointerAngle() {
+    const [a, b] = this.pointers.values();
+    return a && b ? Math.atan2(b.y - a.y, b.x - a.x) : 0;
   }
 
   schedule() {

@@ -25,7 +25,7 @@
           </div>
           <div class="resource-row">
             <div id="hearts" class="hearts" role="img" aria-label="5 hearts remaining"><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg></div>
-            <button id="reset-tokens" class="reset-tokens" type="button" aria-label="3 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
+            <button id="reset-tokens" class="reset-tokens" type="button" aria-label="4 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
           </div>
           <progress id="reset-recharge-progress" class="sr-only" max="100" value="0" aria-label="Next reset recharge" hidden></progress>
         </section>
@@ -74,15 +74,15 @@
       <div class="difficulty-submit"><button class="primary" type="submit"><span id="start-cube-label">Start 5 × 5 cube</span><span aria-hidden="true">↗</span></button></div>
     </form>
   </dialog>
-  <dialog id="loss-dialog" aria-labelledby="loss-title" aria-describedby="loss-description" closedby="none">
-    <button id="loss-close" class="dialog-close" type="button" aria-label="Close refill prompt">×</button>
+  <dialog id="loss-dialog" aria-labelledby="loss-title" aria-describedby="loss-description">
     <h2 id="loss-title">Out of hearts.</h2>
     <p id="loss-description">Use a reset to refill all five hearts and keep your progress.</p>
-    <div id="loss-resets" class="reset-icons" role="img" aria-label="3 resets available"><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></div>
+    <div id="loss-resets" class="reset-icons" role="img" aria-label="4 resets available"><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></div>
     <p class="reset-clock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg><span id="loss-recharge" class="recharge">All resets ready</span></p>
-    <button id="use-reset" class="primary" type="button" autofocus>Use reset · Refill hearts</button>
-    <button id="loss-restart" class="secondary" type="button">Restart this puzzle · Free</button>
-    <p class="small">One reset recharges every 3 hours. Restarting clears this puzzle’s progress.</p>
+    <button id="use-reset" class="primary" type="button">Use reset · Refill hearts</button>
+    <button id="loss-close" class="secondary" type="button" autofocus>Go back</button>
+    <button id="loss-restart" class="secondary" type="button">Restart level</button>
+    <p class="small">Go back keeps your progress. Restart level clears it. One reset returns every 3 hours.</p>
   </dialog>
   <dialog id="win-dialog" aria-label="Level cleared"><div class="win-mark" aria-hidden="true">✧</div><h2>Level cleared.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
   <dialog id="help-dialog" aria-labelledby="help-title">
@@ -117,7 +117,7 @@
       </li>
       <li>
         <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><circle cx="44" cy="28" r="20" fill="#e8e6ff" stroke="#6258d5" stroke-width="2.5"/><path d="M33 23a12 12 0 1 1-1 10M33 15v10h10" fill="none" stroke="#6258d5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <div><h3>Reset</h3><p>A reset restores five hearts and keeps your progress. You can have three resets. One reset returns every three hours.</p></div>
+        <div><h3>Reset</h3><p>A reset restores five hearts and keeps your progress. You can have four resets. One reset returns every three hours.</p></div>
       </li>
       <li>
         <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><rect x="6" y="5" width="76" height="46" rx="5" fill="#c5deeb"/><path d="M17 20h21v17h20" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><path d="m70 37-14-9v18Z" fill="#fff"/></svg>
@@ -125,7 +125,7 @@
       </li>
     </ul>
     <details class="help-controls"><summary>Controls and hints</summary>
-      <p>Drag to turn the cube. Pinch or scroll to change the view size.</p>
+      <p>Drag to turn the cube. Twist two fingers to turn the cube in the screen plane. Pinch or scroll to change the view size.</p>
       <p>Select Hint to find a clear path. Hints do not use hearts or resets.</p>
       <p><strong>Keyboard:</strong> Select the cube. Use the arrow keys to turn it. Press H for a hint. Press Enter to move the selected arrow.</p>
     </details>

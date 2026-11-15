@@ -43,17 +43,13 @@ function refreshResources(save = true){
   paintResources(now);
   $('choose-size').disabled=crashes>=MAX_HEARTS;
   $('hint').disabled=crashes>=MAX_HEARTS;
-  $('use-reset').hidden=resets.count===0;
+  $('use-reset').hidden=resets.count===0||crashes===0;
   $('use-reset').disabled=crashes===0;
   $('loss-recharge').textContent=recoveryCountdown(resets,now);
   $('loss-title').textContent=crashes>=MAX_HEARTS?'Out of hearts.':'Refill your hearts?';
-  $('loss-close').hidden=crashes>=MAX_HEARTS;
-  $('loss-restart').hidden=crashes<MAX_HEARTS;
-  $('loss-dialog').setAttribute('closedby',crashes>=MAX_HEARTS?'none':'closerequest');
   $('loss-description').textContent=crashes===0?'Your hearts are full. Each crash costs one heart.'
     : resets.count>0?'Use a reset to refill all five hearts and keep your progress.'
-    : crashes>=MAX_HEARTS?'No resets left. Restart this puzzle for a fresh set of hearts.'
-    : 'No resets left. Your next reset is on its way.';
+    : 'Go back to wait for a reset, or restart this level.';
   if(changed&&save&&puzzle)persist();
 }
 function openRefill(){
@@ -156,9 +152,7 @@ $('use-reset').addEventListener('click',()=>{
   notify('Hearts refilled.');
 });
 $('reset-tokens').addEventListener('click',openRefill);
-$('loss-close').addEventListener('click',()=>{if(crashes<MAX_HEARTS)$('loss-dialog').close();});
-$('loss-dialog').addEventListener('cancel',event=>{if(crashes>=MAX_HEARTS)event.preventDefault();});
-$('loss-dialog').addEventListener('close',()=>{if(crashes>=MAX_HEARTS)showLoss();});
+$('loss-close').addEventListener('click',()=>$('loss-dialog').close());
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;audio.setEnabled(soundEnabled);update();if(soundEnabled)audio.swoosh();});
 $('choose-size').addEventListener('click',()=>{if(crashes>=MAX_HEARTS){showLoss();return;}$('settings-dialog').close();$('size-input').value=puzzle.size;clearSizeError();syncChoice();$('difficulty-dialog').showModal();});
 $('help').addEventListener('click',()=>$('help-dialog').showModal());

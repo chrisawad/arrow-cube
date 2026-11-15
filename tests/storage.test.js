@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadProgress, saveProgress, normalizeProgress, STORAGE_KEY } from '../src/storage.js';
 
-const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto', crashes: 0, resets: { count: 3, nextAt: null } });
+const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto', crashes: 0, resets: { count: 4, nextAt: null } });
 test('progress round trips the puzzle seed, removed paths, dimension, and settings', () => {
   const values = new Map();
   globalThis.localStorage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
@@ -51,9 +51,9 @@ test('legacy saves retain their original generator, seed, dimension, and removed
   let stored = JSON.stringify(legacy);
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   const restored = loadProgress();
-  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 3, nextAt: null } });
+  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null } });
   assert.equal(saveProgress(restored), true);
-  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 3, nextAt: null } });
+  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, resets: { count: 4, nextAt: null } });
 });
 test('current generator version round trips without changing the existing storage schema or key', () => {
   let stored;
@@ -147,18 +147,18 @@ test('loss and recovery deadlines round trip and restore earned resets without c
   stored = JSON.stringify({ version: 1, ...progress, resets: { count: 0, nextAt: now - 2 * interval - 1000 } });
   const restored = loadProgress();
   assert.equal(restored.resets.count, 3);
-  assert.equal(restored.resets.nextAt, null);
+  assert.equal(restored.resets.nextAt, now + interval - 1000);
   assert.equal(restored.crashes, 5);
   assert.equal(restored.seed, progress.seed);
   assert.deepEqual(restored.removed, progress.removed);
 });
 
-test('old life and sixth-crash saves migrate to three resets and zero hearts on the same board', () => {
+test('old life and sixth-crash saves migrate to four resets and zero hearts on the same board', () => {
   const progress = { ...valid(), crashes: 6, lives: { count: 4, nextAt: null } };
   delete progress.resets;
   const restored = normalizeProgress(progress);
   assert.equal(restored.crashes, 5);
-  assert.deepEqual(restored.resets, { count: 3, nextAt: null });
+  assert.deepEqual(restored.resets, { count: 4, nextAt: null });
   assert.equal(restored.seed, progress.seed);
   assert.deepEqual(restored.removed, progress.removed);
   assert.equal(restored.lives, undefined, 'do not retain two competing resource balances');
