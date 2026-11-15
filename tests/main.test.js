@@ -50,11 +50,13 @@ class Element {
 function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now = 1800000000000 } = {}) {
   const ids = [...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]);
   const elements = new Map(ids.map(id => [id, new Element()]));
+  const hearts = Array.from({length: 5}, () => new Element());
+  const resetIcons = Array.from({length: 6}, () => new Element());
   const presets = [3, 5, 8, 12].map(size => Object.assign(new Element(), { dataset: { size: String(size) } }));
   const document = Object.assign(new Element(), {
     visibilityState: 'visible',
     getElementById: id => elements.get(id)?.removed ? null : elements.get(id),
-    querySelectorAll: selector => selector === '[data-size]' ? presets
+    querySelectorAll: selector => selector === '[data-heart]' ? hearts : selector === '[data-reset]' ? resetIcons : selector === '[data-size]' ? presets
       : selector === 'dialog' ? [...elements.entries()].filter(([id]) => id.endsWith('-dialog')).map(([, element]) => element) : [],
   });
   const window = new Element();
@@ -112,7 +114,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
   const view = views[0];
   assert.equal(view.calls.length, 1, 'startup must initialize the board');
   return {
-    view, saves, sounds, views, presets, get: id => elements.get(id), search: () => window.location.search,
+    view, saves, sounds, views, presets, hearts, resetIcons, get: id => elements.get(id), search: () => window.location.search,
     state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())), pagehide: () => window.emit('pagehide'),
     advance(milliseconds) { now += milliseconds; for (const callback of intervals) callback(); },
     visibility(state) { document.visibilityState = state; document.emit('visibilitychange'); },
@@ -183,7 +185,7 @@ test('restored crash colors filter stale or removed IDs and restart clears them 
   assert.deepEqual([...h.view.blocked], [1]);
   assert.deepEqual(h.saves.at(-1).blocked, [1]);
   const initial = h.state();
-  h.get('restart').click();
+  h.get('loss-restart').click();
   assert.equal(h.state().seed, initial.seed);
   assert.equal(h.state().generatorVersion, initial.generatorVersion);
   assert.deepEqual(h.state().removed, []);
@@ -342,7 +344,7 @@ test('a departure atomically saves purple flips and removal, restores them, and 
   assert.deepEqual(h.saves.at(-1).removed, [0]);
   const restored = boot(h.saves.at(-1), { puzzleFactory: purplePuzzle });
   assert.equal(restored.view.puzzle.redirectors[0].flipped, true);
-  restored.get('restart').click();
+  restored.get('loss-restart').click();
   assert.deepEqual(restored.saves.at(-1).flippedRedirectors, []);
   assert.equal(restored.view.puzzle.redirectors[0].flipped, false);
   h.view.animations.at(-1).resolve(true); await playing;
@@ -377,19 +379,23 @@ async function crash(h) {
   animation.resolve(false); await playing;
 }
 
-test('five crashes are allowed; the sixth opens loss only after rollback and persists immediately', async () => {
+test('each crash costs a heart; the fifth opens loss only after rollback and persists immediately', async () => {
   const h = boot(null, { puzzleFactory: lifePuzzle });
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
     await crash(h);
     assert.equal(h.state().crashes, attempt);
+    assert.equal(h.state().hearts, 5 - attempt);
+    assert.equal(h.hearts.filter(icon => !icon.classes.has('empty')).length, 5 - attempt);
     assert.equal(h.state().lost, false);
     assert.equal(h.get('loss-dialog').open, false);
-    assert.equal(h.state().lives.count, 5);
+    assert.equal(h.state().resets.count, 3);
   }
   const playing = h.view.options.onSelect(0), animation = h.view.animations.at(-1);
   animation.onImpact(); animation.onImpact();
-  assert.equal(h.state().crashes, 6);
-  assert.equal(h.saves.at(-1).crashes, 6, 'reload during rollback must not erase the loss');
+  assert.equal(h.state().crashes, 5);
+  assert.equal(h.state().hearts, 0);
+  assert(h.hearts.every(icon => icon.classes.has('empty')));
+  assert.equal(h.saves.at(-1).crashes, 5, 'reload during rollback must not erase the loss');
   await h.view.options.onSelect(0);
   h.get('cube-stage').emit('keydown', { key: 'h' });
   assert.equal(h.get('loss-dialog').open, false, 'keep the collision animation visible');
@@ -397,46 +403,48 @@ test('five crashes are allowed; the sixth opens loss only after rollback and per
   assert.equal(restored.get('loss-dialog').open, true);
   animation.resolve(false); await playing;
   assert.equal(h.get('loss-dialog').open, true);
-  assert.equal(h.sounds.blocked, 6, 'each physical crash counts only once');
+  assert.equal(h.sounds.blocked, 5, 'each physical crash counts only once');
   assert.equal(h.state().moves, 0);
-  assert.equal(h.state().lives.count, 5, 'never spend a life automatically');
+  assert.equal(h.state().resets.count, 3, 'never spend a reset automatically');
 });
 
-test('continuing spends exactly one life and keeps board progress, while another loss needs an explicit choice', async () => {
+test('continuing spends exactly one reset and keeps board progress, while another loss needs an explicit choice', async () => {
   const h = boot(null, { puzzleFactory: lifePuzzle });
   const release = h.view.options.onSelect(2);
   h.view.animations.at(-1).resolve(true); await release;
-  for (let i = 0; i < 6; i++) await crash(h);
+  for (let i = 0; i < 5; i++) await crash(h);
   const before = h.state(), boardCalls = h.view.calls.length;
-  h.get('use-life').click(); h.get('use-life').click();
+  h.get('use-reset').click(); h.get('use-reset').click();
   const continued = h.state();
   assert.equal(continued.crashes, 0);
-  assert.equal(continued.lives.count, 4);
-  assert.equal(continued.lives.nextAt, 1800000000000 + lifeRules.LIFE_RECOVERY_MS);
+  assert.equal(continued.resets.count, 2);
+  assert(h.hearts.every(icon => !icon.classes.has('empty')));
+  assert.equal(h.resetIcons.filter(icon => icon.classes.has('empty')).length, 2, 'one spent icon in both HUD and dialog');
+  assert.equal(continued.resets.nextAt, 1800000000000 + lifeRules.RESET_RECOVERY_MS);
   for (const key of ['seed', 'generatorVersion', 'moves', 'removed', 'blocked', 'redirectors']) {
     assert.deepEqual(continued[key], before[key], key);
   }
   assert.equal(h.view.calls.length, boardCalls, 'continuing cannot generate or reset the puzzle');
   assert.equal(h.get('loss-dialog').open, false);
   const restored = boot(h.saves.at(-1), { puzzleFactory: lifePuzzle });
-  assert.deepEqual(restored.state().lives, continued.lives);
+  assert.deepEqual(restored.state().resets, continued.resets);
   assert.deepEqual(restored.state().removed, [2]);
-  for (let i = 0; i < 5; i++) { await crash(h); assert.equal(h.state().lost, false); }
+  for (let i = 0; i < 4; i++) { await crash(h); assert.equal(h.state().lost, false); }
   await crash(h);
   assert.equal(h.state().lost, true);
-  assert.equal(h.state().lives.count, 4);
+  assert.equal(h.state().resets.count, 2);
   h.advance(60 * 60 * 1000);
-  h.get('use-life').click();
-  assert.deepEqual(h.state().lives, { count: 3, nextAt: continued.lives.nextAt });
+  h.get('use-reset').click();
+  assert.deepEqual(h.state().resets, { count: 1, nextAt: continued.resets.nextAt });
 });
 
-test('with no lives, only a free same-puzzle reset resumes play and cannot refill the life bank', async () => {
-  const bank = { count: 0, nextAt: 1800000000000 + lifeRules.LIFE_RECOVERY_MS };
-  const h = boot(saveFor(5, 41, { crashes: 6, removed: [2], blocked: [0], moves: 1, lives: bank }), { puzzleFactory: lifePuzzle });
+test('with no resets, only a free same-puzzle restart resumes play and cannot refill the reset bank', async () => {
+  const bank = { count: 0, nextAt: 1800000000000 + lifeRules.RESET_RECOVERY_MS };
+  const h = boot(saveFor(5, 41, { crashes: 5, removed: [2], blocked: [0], moves: 1, resets: bank }), { puzzleFactory: lifePuzzle });
   const original = JSON.stringify(h.view.puzzle);
   assert.equal(h.get('loss-dialog').open, true);
-  assert.equal(h.get('use-life').hidden, true);
-  h.get('use-life').click();
+  assert.equal(h.get('use-reset').hidden, true);
+  h.get('use-reset').click();
   assert.equal(h.state().lost, true);
   assert.equal(h.get('loss-dialog').emit('cancel').defaultPrevented, true);
   h.get('loss-dialog').close();
@@ -452,37 +460,37 @@ test('with no lives, only a free same-puzzle reset resumes play and cannot refil
   assert.equal(h.state().moves, 0);
   assert.deepEqual(h.state().removed, []);
   assert.deepEqual(h.state().blocked, []);
-  assert.deepEqual(h.state().lives, bank);
+  assert.deepEqual(h.state().resets, bank);
   assert.equal(JSON.stringify(h.view.puzzle), original);
-  h.get('restart').click(); h.submit(8);
-  assert.deepEqual(h.state().lives, bank, 'restart and difficulty changes cannot refill lives');
+  h.get('loss-restart').click(); h.submit(8);
+  assert.deepEqual(h.state().resets, bank, 'restart and difficulty changes cannot refill resets');
 });
 
 test('recovery catches up after hidden or closed time, unlocks continue, and never resumes or spends automatically', () => {
-  const now = 1800000000000, interval = lifeRules.LIFE_RECOVERY_MS;
-  const saved = saveFor(5, 41, { crashes: 6, lives: { count: 0, nextAt: now + interval } });
+  const now = 1800000000000, interval = lifeRules.RESET_RECOVERY_MS;
+  const saved = saveFor(5, 41, { crashes: 5, resets: { count: 0, nextAt: now + interval } });
   const h = boot(saved, { puzzleFactory: lifePuzzle, now });
-  assert.equal(h.get('use-life').hidden, true);
+  assert.equal(h.get('use-reset').hidden, true);
   h.advance(interval - 1);
-  assert.equal(h.state().lives.count, 0);
+  assert.equal(h.state().resets.count, 0);
   h.advance(1);
-  assert.equal(h.state().lives.count, 1);
-  assert.equal(h.get('use-life').hidden, false);
+  assert.equal(h.state().resets.count, 1);
+  assert.equal(h.get('use-reset').hidden, false);
   assert.equal(h.state().lost, true);
   assert.equal(h.get('loss-dialog').open, true);
   h.visibility('hidden'); h.advance(2 * interval);
-  assert.equal(h.state().lives.count, 1);
+  assert.equal(h.state().resets.count, 1);
   h.visibility('visible');
-  assert.equal(h.state().lives.count, 3);
-  assert.equal(h.saves.at(-1).lives.count, 3);
+  assert.equal(h.state().resets.count, 3);
+  assert.equal(h.saves.at(-1).resets.count, 3);
   const reopened = boot(saved, { puzzleFactory: lifePuzzle, now: now + 20 * interval });
-  assert.deepEqual(reopened.state().lives, { count: 5, nextAt: null });
+  assert.deepEqual(reopened.state().resets, { count: 3, nextAt: null });
   assert.equal(reopened.state().lost, true);
 });
 
-test('successful releases are unlimited and winning resets crashes without replenishing lives', async () => {
-  const bank = { count: 2, nextAt: 1800000000000 + lifeRules.LIFE_RECOVERY_MS };
-  const h = boot(saveFor(5, 41, { crashes: 4, lives: bank }));
+test('successful releases are unlimited and winning resets crashes without replenishing resets', async () => {
+  const bank = { count: 2, nextAt: 1800000000000 + lifeRules.RESET_RECOVERY_MS };
+  const h = boot(saveFor(5, 41, { crashes: 4, resets: bank }));
   const count = h.state().remaining;
   assert(count > 5);
   while (h.state().remaining) {
@@ -491,11 +499,57 @@ test('successful releases are unlimited and winning resets crashes without reple
     const playing = h.view.options.onSelect(move.id, move.reverse);
     h.view.animations.at(-1).resolve(true); await playing;
     assert.equal(h.state().crashes, 4);
-    assert.deepEqual(h.state().lives, bank);
+    assert.deepEqual(h.state().resets, bank);
   }
   assert.equal(h.state().moves, count);
   assert.equal(h.get('win-dialog').open, true);
   h.get('next-level').click();
   assert.equal(h.state().crashes, 0);
-  assert.deepEqual(h.state().lives, bank);
+  assert.deepEqual(h.state().resets, bank);
+});
+
+test('a partial heart refill needs confirmation, consumes one reset, and preserves all progress', async () => {
+  const h = boot(null, { puzzleFactory: lifePuzzle });
+  h.get('reset-tokens').click();
+  assert.equal(h.get('loss-dialog').open, true);
+  assert.equal(h.get('use-reset').disabled, true, 'full hearts cannot waste a reset');
+  h.get('use-reset').click();
+  assert.equal(h.state().resets.count, 3);
+  h.get('loss-close').click();
+  assert.equal(h.get('loss-dialog').open, false);
+  const releasing = h.view.options.onSelect(2);
+  h.view.animations.at(-1).resolve(true); await releasing;
+  await crash(h);
+  const before = h.state();
+  h.get('reset-tokens').click();
+  assert.equal(h.get('use-reset').disabled, false);
+  assert.equal(h.get('loss-restart').hidden, true);
+  assert.equal(h.get('loss-dialog').emit('cancel').defaultPrevented, false);
+  assert.equal(h.state().resets.count, 3, 'opening the refill prompt cannot spend');
+  h.get('use-reset').click();
+  assert.equal(h.state().hearts, 5);
+  assert.equal(h.state().resets.count, 2);
+  assert.deepEqual(h.state().removed, before.removed);
+  assert.deepEqual(h.state().redirectors, before.redirectors);
+  assert.equal(h.state().seed, before.seed);
+});
+
+test('settings contains working sound, animation, and difficulty controls without changing the current board', () => {
+  const h = boot();
+  const initial = h.state();
+  h.get('settings').click();
+  assert.equal(h.get('settings-dialog').open, true);
+  h.get('sound').click();
+  assert.equal(h.get('sound').getAttribute('aria-pressed'), 'false');
+  assert.equal(h.get('sound').textContent, 'Off');
+  assert.equal(h.saves.at(-1).sound, false);
+  h.get('motion-select').value = 'reduced';
+  h.get('motion-select').emit('change');
+  assert.equal(h.view.motionMode, 'reduced');
+  assert.equal(h.saves.at(-1).motion, 'reduced');
+  h.get('choose-size').click();
+  assert.equal(h.get('settings-dialog').open, false);
+  assert.equal(h.get('difficulty-dialog').open, true);
+  assert.equal(h.state().seed, initial.seed);
+  assert.deepEqual(h.state().resets, initial.resets);
 });

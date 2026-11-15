@@ -12,43 +12,51 @@
 </head>
 <body>
   <div class="app">
-    <header class="topbar">
-      <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-game-192.png" width="36" height="36" alt=""><span>ARROW<span class="brand-light">CUBE</span></span></a>
-      <div class="header-actions"><span class="saved" id="save-status"><i></i> Progress saved</span><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">Install help</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button><button id="sound" class="icon-button" aria-label="Turn sound off" aria-pressed="true" title="Sound on">♫</button></div>
-    </header>
     <main>
       <aside class="sidebar">
-        <section class="level-card" aria-label="Level progress">
-          <div class="level-card-top"><span class="eyebrow">CURRENT LEVEL</span><span class="level-badge" id="dimension">5 × 5</span></div>
-          <div class="level-number"><span id="level">05</span></div>
-          <div class="progress-track"><div id="progress-fill"></div></div>
-          <div class="progress-label"><span><b id="remaining">0</b> arrows left</span><span id="progress-percent">0%</span></div>
-          <div class="attempt-status">
-            <span class="lives-meter"><span aria-hidden="true">♥</span> <b id="lives-count">5</b> / 5 lives</span>
-            <span id="crash-meter">Crashes <b id="crashes-count">0</b> / 5</span>
-            <span id="life-recharge">All lives ready</span>
+        <section class="level-card" aria-label="Game progress">
+          <div class="level-heading">
+            <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-game-192.png" width="32" height="32" alt=""></a>
+            <span class="level-title">Level <b id="level">5</b></span>
+            <span class="progress-summary"><span id="remaining">0</span> left <b id="progress-percent">0%</b></span>
           </div>
-          <button id="choose-size" class="size-button">Choose starting difficulty <span aria-hidden="true">↗</span></button>
+          <div class="progress-track" id="completion" role="progressbar" aria-label="Puzzle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
+          <div class="resource-row">
+            <div id="hearts" class="hearts" role="img" aria-label="5 hearts remaining"><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-heart><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg></div>
+            <button id="reset-tokens" class="reset-tokens" type="button" aria-label="3 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
+          </div>
+          <span id="reset-recharge" class="recharge" hidden></span>
         </section>
       </aside>
       <section class="play-area" aria-label="Arrow cube puzzle">
         <div id="cube-stage" tabindex="0" role="group" aria-label="3D puzzle. Drag to rotate, tap an arrow to remove it. Arrow keys rotate, H gives a hint, Enter removes the hinted arrow."><div id="loading">Shaping your puzzle…</div></div>
         <div class="game-controls">
-        <div class="move-count"><b id="moves">0</b> moves</div>
-        <div class="stage-caption"><span aria-hidden="true">↔</span> <span id="gesture-help">Drag to rotate · Scroll to zoom · Tap to release</span></div>
-        <label class="motion-setting" for="motion-select">Arrow motion <select id="motion-select"><option value="auto">Follow device</option><option value="full" selected>Full animation</option><option value="reduced">Reduced motion</option></select></label>
-        <div class="game-toolbar" aria-label="Puzzle tools"><button id="hint"><span aria-hidden="true">✧</span> Hint</button><button id="reset-view"><span aria-hidden="true">⟳</span> Center</button><button id="restart"><span aria-hidden="true">↺</span> Restart</button><button id="help" aria-label="Game instructions"><span aria-hidden="true">?</span></button></div>
+          <div class="game-toolbar" role="group" aria-label="Game controls">
+            <button id="hint" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></svg><span id="hint-label">Hint</span></button>
+            <button id="help" type="button" aria-label="How to play" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9a2.7 2.7 0 0 1 5.3.8c0 1.9-2.7 2-2.7 3.7M12 17h.01"/></svg></button>
+            <button id="settings" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.6 2.3-1.8 1L4.3 6 2.8 8.6 4.5 10v2l-1.7 1.4L4.3 16l2.3-.3 1.8 1L9 19h3l.6-2.3 1.8-1 2.3.3 1.5-2.6-1.7-1.4v-2l1.7-1.4L16.7 6l-2.3.3-1.8-1L12 3Z" transform="translate(1.5 1)"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
         <div id="toast" role="status" aria-live="polite"></div>
       </section>
     </main>
   </div>
-  <dialog id="difficulty-dialog">
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <button class="dialog-close" type="button" data-close aria-label="Close settings" autofocus>×</button>
+    <h2 id="settings-title">Settings</h2>
+    <div class="settings-list">
+      <div class="setting-row"><label for="sound">Sound</label><button id="sound" class="toggle" type="button" aria-pressed="true">On</button></div>
+      <div class="setting-row"><label for="motion-select">Animation</label><select id="motion-select"><option value="auto">Follow device</option><option value="full" selected>Full animation</option><option value="reduced">Reduced motion</option></select></div>
+      <button id="choose-size" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="difficulty-dialog"><span>Difficulty</span><span><b id="dimension">5 × 5</b> <span aria-hidden="true">›</span></span></button>
+    </div>
+    <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><div><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">Install help</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button></div></div>
+  </dialog>
+  <dialog id="difficulty-dialog" aria-labelledby="difficulty-title">
     <form id="difficulty-form" aria-labelledby="difficulty-title">
       <button type="button" class="dialog-close" data-close aria-label="Close">×</button>
-      <span class="eyebrow">FIND YOUR STARTING POINT</span>
-      <h2 id="difficulty-title">A little challenge.<br>Or a bigger one.</h2>
-      <p>Level sets the cube’s dimensions. New puzzles mix yellow wrap edges, blue and purple redirectors, and green/yellow two-ended lines. Paths are at least three cells long. Clear a cube to unlock the next size.</p>
+
+      <h2 id="difficulty-title">Choose difficulty</h2>
+      <p>Choose a grid size. Clearing a cube unlocks the next size.</p>
       <div class="difficulty-options">
         <button type="button" data-size="3"><strong>3 × 3</strong><span>Easy</span></button>
         <button type="button" data-size="5"><strong>5 × 5</strong><span>Medium</span></button>
@@ -65,17 +73,17 @@
     </form>
   </dialog>
   <dialog id="loss-dialog" aria-labelledby="loss-title" aria-describedby="loss-description" closedby="none">
-    <div class="loss-mark" aria-hidden="true">♡</div>
-    <span class="eyebrow">A CHANCE TO TRY AGAIN</span>
-    <h2 id="loss-title">Too many crashes.</h2>
-    <p id="loss-description">Use a life to continue, or reset the same puzzle.</p>
-    <p class="loss-bank"><strong id="loss-lives">5 of 5 lives available</strong><span id="loss-recharge">All lives ready</span></p>
-    <button id="use-life" class="primary" type="button" autofocus>Use 1 life · 5 more crashes</button>
-    <button id="loss-restart" class="secondary" type="button">Reset this puzzle · Free</button>
-    <p class="small">One life returns every 3 hours, up to 5. Resetting keeps this puzzle and your level, and clears your moves and crashes.</p>
+    <button id="loss-close" class="dialog-close" type="button" aria-label="Close refill prompt">×</button>
+    <h2 id="loss-title">Out of hearts.</h2>
+    <p id="loss-description">Use a reset to refill all five hearts and keep your progress.</p>
+    <div id="loss-resets" class="reset-icons" role="img" aria-label="3 resets available"><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></div>
+    <p id="loss-recharge" class="recharge">All resets ready</p>
+    <button id="use-reset" class="primary" type="button" autofocus>Use reset · Refill hearts</button>
+    <button id="loss-restart" class="secondary" type="button">Restart this puzzle · Free</button>
+    <p class="small">One reset recharges every 3 hours. Restarting clears this puzzle’s progress.</p>
   </dialog>
-  <dialog id="win-dialog"><div class="win-mark" aria-hidden="true">✧</div><span class="eyebrow">EVERY ARROW FOUND ITS WAY</span><h2>Beautifully<br>untangled.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
-  <dialog id="help-dialog"><button class="dialog-close" data-close aria-label="Close">×</button><span class="eyebrow">SIX SIDES. FIND YOUR ROUTE.</span><h2>Follow the arrow.</h2><p>Tap a line to send it in its arrowhead’s direction. If another line blocks its route, it hits the obstacle and slides back red.</p><p><strong>Yellow edges</strong> carry moving lines onto the neighboring face in either direction. <strong>Blue double chevrons</strong> are fixed markers: the leading tip turns to follow them.</p><p><strong>Purple chevrons with a dot</strong> turn the leading tip, then flip to point the opposite way. They keep their new direction after a successful exit. If the line crashes, they return to their original directions as it rolls back.</p><p><strong>Green/yellow lines have two arrowheads.</strong> Tap the green half to lead with the green end, or the yellow half to lead with the yellow end. A line keeps moving through every edge and redirector until it slides off an unmarked edge or collides.</p><p>Black and colored lines are on near faces. Pale lines show through from the far side—rotate the cube to reach them. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate, H for a hint, and Enter to release the hinted endpoint.</p><p><strong>Lives and crashes:</strong> five crashes are allowed; the sixth ends your attempt. Spend a life for five fresh allowed crashes, or reset the same puzzle for free. Successful releases are unlimited. One life returns every three hours, up to five, even while the app is closed.</p><p>Your progress is saved on this device. After offline play finishes preparing, the game works without a connection.</p><button class="primary" data-close>Got it</button></dialog>
+  <dialog id="win-dialog" aria-label="Level cleared"><div class="win-mark" aria-hidden="true">✧</div><h2>Level cleared.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
+  <dialog id="help-dialog" aria-label="How to play"><button class="dialog-close" data-close aria-label="Close">×</button><h2>How to play</h2><p>Drag to rotate. Pinch or scroll to zoom. Tap an arrow to release it.</p><p>Tap a line to send it in its arrowhead’s direction. If another line blocks its route, it hits the obstacle and slides back red.</p><p><strong>Yellow edges</strong> carry moving lines onto the neighboring face in either direction. <strong>Blue double chevrons</strong> are fixed markers: the leading tip turns to follow them.</p><p><strong>Purple chevrons with a dot</strong> turn the leading tip, then flip to point the opposite way. They keep their new direction after a successful exit. If the line crashes, they return to their original directions as it rolls back.</p><p><strong>Green/yellow lines have two arrowheads.</strong> Tap the green half to lead with the green end, or the yellow half to lead with the yellow end. A line keeps moving through every edge and redirector until it slides off an unmarked edge or collides.</p><p>Black and colored lines are on near faces. Pale lines show through from the far side—rotate the cube to reach them. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate, H for a hint, and Enter to release the hinted endpoint.</p><p><strong>Hearts:</strong> each crash costs one heart. A reset refills all five hearts and keeps your progress. You can hold three resets; one recharges every three hours, even while the app is closed. With no hearts or resets, restart the same puzzle for free.</p><p>Your progress is saved on this device. After offline play finishes preparing, the game works without a connection.</p><button class="primary" data-close>Got it</button></dialog>
   <dialog id="install-dialog" aria-labelledby="install-title">
     <button class="dialog-close" type="button" data-close aria-label="Close">×</button>
     <span class="eyebrow">TAKE THE CUBE WITH YOU</span>
