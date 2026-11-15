@@ -384,7 +384,7 @@ export class CubeView {
         camera.getWorldPosition(eye);
         mesh.worldToLocal(eye).sub(center).normalize();
         const facing = Math.max(eye.dot(normalA), eye.dot(normalB));
-        material.opacity = THREE.MathUtils.lerp(0.35, 1, THREE.MathUtils.smoothstep(facing, -0.08, 0.12));
+        material.opacity = THREE.MathUtils.lerp(0.15, 1, THREE.MathUtils.smoothstep(facing, -0.08, 0.12));
       };
       this.featureEdges.add(mesh);
     }
