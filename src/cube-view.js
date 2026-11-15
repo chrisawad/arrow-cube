@@ -20,7 +20,7 @@ for (const x of [-1.024, 1.024]) for (const y of [-1.024, 1.024]) for (const z o
 const INK = '#15191f';
 const HINT = '#5b55e7';
 const BLOCKED = '#e16457';
-const ORANGE = '#d96520', END_BLUE = '#2878d1', BLUE = '#74ccef', PURPLE = '#b64bed';
+const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef', PURPLE = '#b64bed';
 const COLOR_START = 0.45, COLOR_END = 0.55;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
@@ -36,7 +36,7 @@ function segmentFraction(p, a, b) {
 }
 
 function pathColor(progress) {
-  const a = [217, 101, 32], b = [40, 120, 209], t = clamp((progress - COLOR_START) / (COLOR_END - COLOR_START), 0, 1);
+  const a = [55, 180, 135], b = [241, 198, 67], t = clamp((progress - COLOR_START) / (COLOR_END - COLOR_START), 0, 1);
   return `rgb(${a.map((value, i) => Math.round(value + (b[i] - value) * t)).join(',')})`;
 }
 
@@ -68,10 +68,10 @@ function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintRever
     paintArrow(ctx, [points[i - 1], points[i]], arrow.direction, stroke, unit, shape, false);
   }
   if (fragment.progress[0] === 0) {
-    const tailColor = colored ? ORANGE : hintReverse === false ? '#a6bac6' : color;
+    const tailColor = colored ? GREEN : hintReverse === false ? '#a6bac6' : color;
     paintHead(ctx, points[0], orientArrow(arrow, size, true).direction, tailColor, unit, shape);
   }
-  if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? END_BLUE : hintReverse === true ? '#a6bac6' : color, unit, shape);
+  if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? GOLD : hintReverse === true ? '#a6bac6' : color, unit, shape);
 }
 
 function paintRedirector(ctx, marker, unit, flipped) {
@@ -232,7 +232,7 @@ function flyingMaterial(initialColor = INK, arrow = null, reverse = false) {
   const color = new THREE.Color(initialColor);
   const material = new THREE.ShaderMaterial({
     uniforms: { ink: { value: color }, opacity: { value: 1 }, colored: { value: arrow?.bidirectional && initialColor === INK ? 1 : 0 },
-      tailInk: { value: new THREE.Color(reverse ? END_BLUE : ORANGE) }, headInk: { value: new THREE.Color(reverse ? ORANGE : END_BLUE) },
+      tailInk: { value: new THREE.Color(reverse ? GOLD : GREEN) }, headInk: { value: new THREE.Color(reverse ? GREEN : GOLD) },
       colorWindow: { value: new THREE.Vector2(COLOR_START, COLOR_END) } },
     vertexShader: 'attribute float pathProgress; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ lineProgress=pathProgress; vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
     fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform vec2 colorWindow; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); float blend=clamp((lineProgress-colorWindow.x)/(colorWindow.y-colorWindow.x),0.0,1.0); vec3 lineInk=mix(ink,mix(tailInk,headInk,blend),colored); gl_FragColor=vec4(mix(vec3(1.0),lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
@@ -293,7 +293,7 @@ export class CubeView {
     this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035),
       new THREE.MeshBasicMaterial({ color: 0xe2f1ff, opacity: 0.15, transparent: true, depthWrite: false }));
     // Composite the cube and edge markings first. Neither writes depth, so
-    // every arrow layer remains visible over the outlined bands at any rotation.
+    // every arrow layer remains visible over the gray bands at any rotation.
     this.body.renderOrder = 0;
     this.cube.add(this.body);
     this.edgeFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.044, 2.044, 2.044)),
@@ -401,13 +401,9 @@ export class CubeView {
     }
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
-    const layers = [
-      { geometries: yellowEdgeGeometries(edges), color: '#715515', order: 2 },
-      { geometries: yellowEdgeGeometries(edges, 0.034), color: '#ffd84d', order: 2.1 },
-    ];
-    for (const { geometries, color, order } of layers) for (const [index, geometry] of geometries.entries()) {
-      const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, depthWrite: false });
-      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = order;
+    for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
+      const material = new THREE.MeshBasicMaterial({ color: '#939ba6', transparent: true, opacity: 1, depthWrite: false });
+      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {

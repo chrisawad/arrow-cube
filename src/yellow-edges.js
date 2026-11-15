@@ -10,7 +10,7 @@ const EXTENT = YELLOW_EDGE_EXTENT;
 const CORNER = 0.10; // Keep the wider band's inner corner smooth and shallow.
 
 /** Smooth connected yellow corners and cap isolated ends, in cube coordinates. */
-export function yellowEdgeGeometries(edges, width = WIDTH) {
+export function yellowEdgeGeometries(edges) {
   const vertices = new Map();
   const vertex = point => {
     const key = point.toArray().join(',');
@@ -28,7 +28,7 @@ export function yellowEdgeGeometries(edges, width = WIDTH) {
     to.point.clone().sub(from.point).normalize(), from.links.length === 2 ? CORNER : 0);
   for (const segment of segments) {
     const from = trim(segment.start, segment.end), to = trim(segment.end, segment.start);
-    segment.pieces.push(new THREE.TubeGeometry(new THREE.LineCurve3(from, to), 1, width, 16, false));
+    segment.pieces.push(new THREE.TubeGeometry(new THREE.LineCurve3(from, to), 1, WIDTH, 16, false));
   }
   for (const node of vertices.values()) {
     const pieces = segments[node.links[0].index].pieces;
@@ -36,10 +36,10 @@ export function yellowEdgeGeometries(edges, width = WIDTH) {
       const from = trim(node, node.links[0].other), to = trim(node, node.links[1].other);
       // Tangents match the straight portions on either side of the cube corner.
       const bend = new THREE.QuadraticBezierCurve3(from, node.point, to);
-      pieces.push(new THREE.TubeGeometry(bend, 12, width, 16, false));
+      pieces.push(new THREE.TubeGeometry(bend, 12, WIDTH, 16, false));
     } else {
       // Rounded end caps also close three-way junctions without open tube rims.
-      pieces.push(new THREE.SphereGeometry(width, 16, 12).translate(...node.point.toArray()));
+      pieces.push(new THREE.SphereGeometry(WIDTH, 16, 12).translate(...node.point.toArray()));
     }
   }
   return segments.map(({ pieces }) => {

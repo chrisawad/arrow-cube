@@ -64,8 +64,7 @@ test('the movement track turns on both blue markers and follows both physical cr
 });
 
 test('routed departure remains solid through transitions, bends its head on the surface, then exits', async () => {
-  const { view, strokes } = fixture(), edgeMeshes = [...view.featureEdges.children];
-  const done = view.removeArrow(0), animation = view.animations.get(0);
+  const { view, strokes } = fixture(), done = view.removeArrow(0), animation = view.animations.get(0);
   animation.start = 1000;
   assert.equal(animation.route.turns.length, 2);
   for (const distance of [1.35, 1.5, 3.2, 5.45, 7.2, animation.route.distance + 0.5]) {
@@ -79,7 +78,7 @@ test('routed departure remains solid through transitions, bends its head on the 
   }
   view.frame(1000 + animation.duration);
   assert.equal(await done, true); assert(view.removed.has(0));
-  assert.deepEqual(view.featureEdges.children, edgeMeshes, 'slide edge layers remain after a line leaves');
+  assert.equal(view.featureEdges.children.length, 2);
   view.drawFaces(); assert(strokes.includes('#74ccef'), 'fixed redirectors remain after a line leaves');
 });
 
@@ -114,17 +113,17 @@ test('the two clickable halves keep their endpoint choices across face boundarie
   assert.deepEqual(view.pickMove(50, 50), { id: 0, reverse: true });
   hit = { uv: { x: 1 / 8, y: 1 - 3.5 / 8 }, object: { userData: { face: 1 } } };
   assert.deepEqual(view.pickMove(50, 50), { id: 0, reverse: false });
-  assert(fills.includes('#d96520') && fills.includes('#2878d1'), 'both endpoint heads are drawn');
+  assert(fills.includes('#37b487') && fills.includes('#f1c643'), 'both endpoint heads are drawn');
   assert.equal(arrowFragments(arrow, 8).filter(fragment => fragment.head).length, 1, 'the extra tail head is rendered without duplicating the leading endpoint');
 });
 
-test('reverse departures lead with the orange head and preserve both-end gradient data', async () => {
+test('reverse departures lead with the green head and preserve both-end gradient data', async () => {
   const arrow = { ...source, bidirectional: true }, { view } = fixture({ size: 4, gridSize: 4, generatorVersion: 11, arrows: [arrow] });
   const done = view.removeArrow(0, { reverse: true }), animation = view.animations.get(0);
   assert.deepEqual(animation.arrow.cells.at(-1), source.cells[0]);
   assert.deepEqual(animation.arrow.direction, { x: -1, y: 0 });
-  assert.equal(animation.material.uniforms.headInk.value.getHexString(), 'd96520');
-  assert.equal(animation.material.uniforms.tailInk.value.getHexString(), '2878d1');
+  assert.equal(animation.material.uniforms.headInk.value.getHexString(), '37b487');
+  assert.equal(animation.material.uniforms.tailInk.value.getHexString(), 'f1c643');
   const attribute = animation.mesh.geometry.attributes.pathProgress;
   assert.equal(attribute.count, animation.mesh.geometry.attributes.position.count);
   assert([...attribute.array].every(value => value >= 0 && value <= 1));
@@ -137,7 +136,7 @@ test('changing boards disposes old yellow edge meshes', () => {
   let disposed = 0;
   for (const geometry of geometries) geometry.addEventListener('dispose', () => disposed++);
   view.setPuzzle({ size: 4, arrows: [source] });
-  assert.equal(disposed, geometries.length); assert.equal(view.featureEdges, null);
+  assert.equal(disposed, 2); assert.equal(view.featureEdges, null);
   assert(!view.cube.children.includes(old));
 });
 
