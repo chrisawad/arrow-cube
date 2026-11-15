@@ -1,0 +1,9 @@
+source.png is an exact crop of the user's Arrow Cube gameplay screenshot, 1765.png.
+Original screenshot dimensions: 575 x 1280 pixels.
+Crop rectangle: left 40, top 417, right 534, bottom 911 (right/bottom exclusive).
+The 494 x 494 crop contains only the game cube and its pale-blue background.
+No generated artwork, retouching, sharpening, or color changes were applied.
+
+Run python scripts/build-icons.py (requires Pillow) to export the icon sizes.
+The maskable version adds matching background padding to preserve the cube
+when the platform crops the launcher icon to a circle or another shape.
