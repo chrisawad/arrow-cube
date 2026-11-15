@@ -31,7 +31,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--ink); font-size: 1.1rem; font-weight: 850; letter-spacing: -.6px;
   background: #e2f1f8d9; border-radius: .75rem; padding: .35rem .5rem;
 }
-.brand svg { inline-size: 30px; block-size: 34px; fill: none; stroke: var(--purple); stroke-width: 2.5; stroke-linejoin: round; flex: none; }
+.brand img { display: block; inline-size: 36px; block-size: 36px; border-radius: 6px; flex: none; }
 .brand-light { font-weight: 400; margin-inline-start: .25rem; }
 .header-actions { display: flex; align-items: center; gap: .6rem; background: #f4fbffe6; border-radius: 2rem; padding: .25rem .4rem .25rem .75rem; }
 .saved { font-size: .7rem; color: #607986; display: flex; align-items: center; gap: .4rem; }
@@ -77,7 +77,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 700px) {
   :root { --left: max(.65rem, env(safe-area-inset-left, 0px)); --right: max(.65rem, env(safe-area-inset-right, 0px)); }
   .brand { font-size: .9rem; gap: .35rem; padding-inline: .25rem; }
-  .brand svg { inline-size: 25px; block-size: 29px; }
+  .brand img { inline-size: 32px; block-size: 32px; }
   .header-actions { gap: .2rem; padding-inline: .4rem; }
   .header-actions .quiet { font-size: .65rem; padding-inline: .35rem; }
   .saved { font-size: 0; gap: 0; }
