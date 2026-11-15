@@ -37,6 +37,7 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       : accepted ? 'Finish the browser confirmation.'
         : !secure ? 'Use a secure link to install.'
           : embedded ? 'Install from your browser.' : 'Full screen. Play offline.';
+    if (promo && promoDetail) promo.title = promoDetail.textContent;
     let title, detail;
     if (installed) {
       title = 'Arrow Cube is installed or running as an app.';

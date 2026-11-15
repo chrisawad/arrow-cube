@@ -29,10 +29,10 @@
           </div>
           <progress id="reset-recharge-progress" class="sr-only" max="100" value="0" aria-label="Next reset recharge" hidden></progress>
           <div id="install-promo" class="install-promo" hidden>
-            <img src="./icons/arrow-cube-corner-192.png" width="36" height="36" alt="">
-            <div class="install-promo-copy"><strong>Get the app</strong><span id="install-promo-detail">Full screen. Play offline.</span></div>
-            <button id="install-main" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>Install</button>
-            <button id="install-main-help" type="button" aria-haspopup="dialog" aria-controls="install-dialog" hidden>Install help</button>
+            <strong class="install-promo-copy">Get the app</strong>
+            <span id="install-promo-detail" class="sr-only">Full screen. Play offline.</span>
+            <button id="install-main" type="button" aria-describedby="install-promo-detail" hidden>Install</button>
+            <button id="install-main-help" type="button" aria-describedby="install-promo-detail" aria-haspopup="dialog" aria-controls="install-dialog" hidden>Install help</button>
           </div>
         </section>
       </aside>
