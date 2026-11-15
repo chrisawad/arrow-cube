@@ -8,6 +8,20 @@ export function setupThemeControls({ document, initial, onChange, createWheel })
   const picker = createWheel(wheel, { color: theme.edge, onChange: color => { hsv = color; commit(); } });
   const hasPopover = typeof panel.showPopover === 'function';
   if (!hasPopover) panel.removeAttribute('popover');
+  const adjustingPointers = new Set();
+  const paintAdjustment = () => panel.classList.toggle('is-adjusting', adjustingPointers.size > 0);
+  function endAdjustment(event) { adjustingPointers.delete(event.pointerId); paintAdjustment(); }
+  function clearAdjustment() { adjustingPointers.clear(); paintAdjustment(); }
+  for (const control of [wheel, $('color-brightness')]) control.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    adjustingPointers.add(event.pointerId); paintAdjustment();
+  });
+  for (const event of ['pointerup', 'pointercancel']) document.addEventListener(event, endAdjustment);
+  panel.addEventListener('lostpointercapture', endAdjustment);
+  panel.addEventListener('close', clearAdjustment);
+  panel.addEventListener('toggle', event => { if (event.newState === 'closed') clearAdjustment(); });
+  document.defaultView?.addEventListener('blur', clearAdjustment);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearAdjustment(); });
 
   function paintEditor() {
     $('color-name').textContent = THEME_LABELS[selected];
@@ -53,12 +67,13 @@ export function setupThemeControls({ document, initial, onChange, createWheel })
   $('color-hex').addEventListener('change', applyHex);
   $('color-hex').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); applyHex(); } });
   const open = () => {
+    clearAdjustment();
     if ($('settings-dialog').open) $('settings-dialog').close();
     if (hasPopover) panel.showPopover(); else if (!panel.open) panel.showModal();
   };
   $('theme-open').addEventListener('click', open);
   $('theme-settings').addEventListener('click', open);
-  $('theme-close').addEventListener('click', () => { if (hasPopover) panel.hidePopover(); else panel.close(); });
+  $('theme-close').addEventListener('click', () => { clearAdjustment(); if (hasPopover) panel.hidePopover(); else panel.close(); });
   $('theme-reset').addEventListener('click', () => {
     theme = { ...theme, [selected]: DEFAULT_THEME[selected] };
     hsv = hexToHsv(theme[selected]); paintTheme(); onChange({ ...theme });

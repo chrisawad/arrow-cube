@@ -70,6 +70,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
       : selector === 'dialog' ? [...elements.entries()].filter(([id]) => id.endsWith('-dialog')).map(([, element]) => element) : [],
   });
   const window = new Element();
+  document.defaultView = window;
   const initialURL = new URL(`http://riva-laptop:5173/${search}`);
   window.location = { href: initialURL.href, search: initialURL.search, reload() { assert.fail('new boards must not reload the page'); } };
   window.history = { state: null, replaceState(_state, _title, url) {
@@ -118,7 +119,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION,
     applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors,
     ...lifeRules, normalizeTheme, setupThemeControls, Date: Clock,
-    createWinCelebration: () => celebration,
+    createWinCelebration: () => celebration, setupViewport: () => {},
     createColorWheel: (_element, options) => {
       const wheel = { options, setHsv(hsv) { this.hsv = { ...hsv }; } }; wheels.push(wheel); return wheel;
     },
@@ -136,6 +137,8 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())), pagehide: () => window.emit('pagehide'),
     advance(milliseconds) { now += milliseconds; for (const callback of intervals) callback(); },
     visibility(state) { document.visibilityState = state; document.emit('visibilitychange'); },
+    releasePointer(type, pointerId) { document.emit(type, { pointerId }); },
+    blur() { window.emit('blur'); },
     submit(size) {
       elements.get('choose-size').click();
       elements.get('size-input').value = String(size);
@@ -700,6 +703,32 @@ test('theme opens from both controls, previews wheel and hex colors, and restore
     assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);
     assert.deepEqual(h.state(), initial);
     assert.equal(h.view.calls.length, calls, 'palette updates cannot regenerate the puzzle');
+  }
+});
+
+test('holding picker controls previews the board and restores the panel on release, cancellation, or dismissal', () => {
+  for (const popover of [false, true]) {
+    const h = boot(saveFor(5, 23, { removed: [0], blocked: [1], crashes: 2 }), { popover });
+    const before = h.state(), panel = h.get('theme-dialog');
+    h.get('theme-open').click();
+    h.get('color-wheel').emit('pointerdown', { button: 0, pointerId: 1 });
+    assert(panel.classes.has('is-adjusting'));
+    h.wheels[0].options.onChange({ h: 200, s: 1, v: 1 });
+    assert.equal(h.view.theme.edge, '#00aaff', 'the board keeps previewing colors while the panel is faded');
+    h.get('color-brightness').emit('pointerdown', { button: 0, pointerId: 2 });
+    h.releasePointer('pointerup', 1);
+    assert(panel.classes.has('is-adjusting'), 'another held control keeps the preview active');
+    h.releasePointer('pointercancel', 2); assert(!panel.classes.has('is-adjusting'));
+    h.get('color-wheel').emit('pointerdown', { button: 0, pointerId: 3 });
+    h.blur(); assert(!panel.classes.has('is-adjusting'));
+    h.get('color-wheel').emit('pointerdown', { button: 0, pointerId: 4 });
+    h.get('theme-close').click(); assert(!panel.classes.has('is-adjusting'));
+    h.get('theme-open').click();
+    h.get('color-brightness').value = '50'; h.get('color-brightness').emit('input');
+    assert(!panel.classes.has('is-adjusting'), 'keyboard edits retain readable controls');
+    h.get('color-wheel').emit('pointerdown', { button: 0, pointerId: 5 });
+    h.visibility('hidden'); assert(!panel.classes.has('is-adjusting'));
+    assert.deepEqual(h.state(), before, 'previewing colors cannot alter puzzle progress or resources');
   }
 });
 

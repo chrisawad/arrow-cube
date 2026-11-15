@@ -26,6 +26,7 @@ const FILES = ${JSON.stringify(urls)};
 const absolute = path => new URL(path, self.registration.scope).href;
 const PRECACHED = new Set(FILES.map(absolute));
 const INDEX = absolute('./');
+const MANIFEST = absolute('./manifest.webmanifest');
 
 // Refuse login/error redirects: private hosting must never become an offline login page.
 function validResponse(response, url) {
@@ -60,7 +61,16 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   // This is a static app. No runtime caching of API, account, or auth responses.
-  if (request.mode === 'navigate' && url.href.startsWith(self.registration.scope)) {
+  if (url.href === MANIFEST) {
+    // Installed-app metadata must not stay pinned to an older offline cache.
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(new Request(request, { cache: 'no-cache' }));
+        if (validResponse(response, MANIFEST)) return response;
+        return (await caches.match(MANIFEST)) || response;
+      } catch { return (await caches.match(MANIFEST)) || Response.error(); }
+    })());
+  } else if (request.mode === 'navigate' && url.href.startsWith(self.registration.scope)) {
     event.respondWith((async () => {
       try {
         const response = await fetch(request);

@@ -9,9 +9,11 @@ import {normalizeTheme} from './theme.js';
 import {setupThemeControls} from './theme-controls.js';
 import {createColorWheel} from './color-wheel.js';
 import {createWinCelebration} from './celebration.js';
+import {setupViewport} from './viewport.js';
 import {MAX_HEARTS,MAX_RESETS,recoverResets,restoreResets,spendReset,normalizeCrashes,recoveryCountdown,resetRechargeFraction} from './lives.js';
 
 const $ = id => document.getElementById(id);
+setupViewport({window,document});
 let puzzle, removed = new Set(), blocked = new Set(), moves = 0, busy = false, hintId = null, hintReverse = false, generation = 0, toastTimer;
 const saved = loadProgress();
 let theme = normalizeTheme(saved?.theme);

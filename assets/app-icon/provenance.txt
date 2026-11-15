@@ -1,10 +1,9 @@
 Current artwork: source-corner.png.
-It was created with imagegen from a crop of the user's Arrow Cube gameplay screenshot, 1765.png.
+Source: the user's Arrow Cube gameplay screenshot, 1765.png.
 Original screenshot dimensions: 575 x 1280 pixels.
-Crop rectangle: left 40, top 417, right 534, bottom 911 (right/bottom exclusive).
-The 494 x 494 crop contains only the game cube and its pale-blue background.
-The crop was the reference for the close-up edit described in README.md.
+Crop rectangle: left 145, top 495, right 425, bottom 775 (right/bottom exclusive).
+The 280 x 280 crop is unretouched gameplay artwork. No AI image edits are included.
 
 Run python scripts/build-icons.py (requires Pillow) to export the icon sizes.
-The maskable version uses full-bleed artwork with the three-face junction
-inside the central safe zone for launcher masks.
+The maskable version uses full-bleed artwork with the cube corner inside the
+central safe zone for launcher masks. Revised exports use v2 filenames.
