@@ -3,6 +3,7 @@ import {applyRedirectorFlips,flippedRedirectorIds,restoreRedirectors} from './ro
 import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
+import winVoiceURL from '../assets/audio/you-win-group.mp3?url';
 import {setupInstall} from './install.js';
 import {normalizeTheme} from './theme.js';
 import {setupThemeControls} from './theme-controls.js';
@@ -18,7 +19,7 @@ let resets = restoreResets(saved,Date.now()), crashes = 0;
 let bestSize = saved?.bestSize || 5, soundEnabled = saved?.sound ?? true;
 const requestedMotion = new URLSearchParams(window.location.search).get('motion');
 let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'full';
-const audio = new GameAudio(soundEnabled);
+const audio = new GameAudio(soundEnabled,{winVoiceURL});
 let view;
 const winCelebration = createWinCelebration($('win-confetti'));
 $('win-dialog').addEventListener('close',()=>{winCelebration.stop();audio.stopWin();});

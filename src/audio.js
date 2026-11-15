@@ -1,9 +1,39 @@
-/** Small synthesized sounds: no downloads, autoplay, or persistent audio graph. */
+/** Local sound effects, with an optional bundled recording for the win voice. */
 export class GameAudio {
-  constructor(enabled = true) { this.enabled = enabled; this.context = null; this.noise = null; this.tick = null; this.horns = new Set(); }
+  constructor(enabled = true, { winVoiceURL = null } = {}) {
+    this.enabled = enabled; this.context = null; this.noise = null; this.tick = null; this.horns = new Set();
+    this.winVoiceURL = winVoiceURL; this.voiceBuffer = null; this.voiceLoading = null; this.voicePlayback = null; this.winSequence = 0;
+  }
   setEnabled(enabled) { this.enabled = Boolean(enabled); if (!this.enabled) this.stopWin(); }
   // Unlock audio during the click, without playing a sound before impact.
-  prepare() { this._context(); }
+  prepare() { const context = this._context(); if (context) this._loadVoice(context); }
+  _loadVoice(context) {
+    if (!this.winVoiceURL) return Promise.resolve(null);
+    if (this.voiceBuffer) return Promise.resolve(this.voiceBuffer);
+    if (this.voiceLoading) return this.voiceLoading;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const loading = fetch(this.winVoiceURL, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error('Win voice unavailable'); return response.arrayBuffer(); })
+      .then(bytes => context.decodeAudioData(bytes))
+      .then(buffer => { this.voiceBuffer = buffer; return buffer; })
+      .catch(error => { console.warn('Win voice could not load; the fanfare remains available.', error); return null; })
+      .finally(() => { clearTimeout(timeout); if (this.voiceLoading === loading) this.voiceLoading = null; });
+    this.voiceLoading = loading;
+    return loading;
+  }
+  _playVoice(context, buffer) {
+    const source = context.createBufferSource(), gain = context.createGain();
+    source.buffer = buffer; gain.gain.value = .8;
+    source.connect(gain).connect(context.destination);
+    const playback = { source, gain }; this.voicePlayback = playback;
+    source.onended = () => {
+      source.disconnect(); gain.disconnect();
+      if (this.voicePlayback === playback) this.voicePlayback = null;
+    };
+    source.start(context.currentTime);
+    return buffer.duration + .12;
+  }
   _context() {
     if (!this.enabled) return null;
     try {
@@ -95,16 +125,33 @@ export class GameAudio {
     const c = this._context();
     if (!c) return;
     this.stopWin();
+    const sequence = this.winSequence;
+    const play = buffer => {
+      if (!this.enabled || sequence !== this.winSequence || c !== this.context) return;
+      const delay = buffer ? this._playVoice(c, buffer) : 0;
+      this._fanfare(c, delay);
+    };
+    if (this.voiceBuffer) play(this.voiceBuffer);
+    else if (this.winVoiceURL) this._loadVoice(c).then(play);
+    else play(null);
+  }
+  _fanfare(c, delay) {
     const harmonics = new Float32Array([0, 1, .8, .55, .4, .25, .18, .12, .09, .07, .05, .04]);
     const wave = c.createPeriodicWave(new Float32Array(harmonics.length), harmonics);
     // A short G-G-G / C-E-G trumpet fanfare, ending on a bright C-major chord.
     for (const [frequency, at, length] of [[392, 0, .14], [392, .18, .14], [392, .36, .14],
       [523.25, .57, .2], [659.25, .82, .2], [783.99, 1.07, .85]]) {
-      this._trumpet(c, wave, frequency, at, length, .07);
+      this._trumpet(c, wave, frequency, at + delay, length, .07);
     }
-    for (const frequency of [523.25, 659.25]) this._trumpet(c, wave, frequency, 1.07, .85, .018);
+    for (const frequency of [523.25, 659.25]) this._trumpet(c, wave, frequency, 1.07 + delay, .85, .018);
   }
   stopWin() {
+    this.winSequence++;
+    if (this.voicePlayback) {
+      const { source, gain } = this.voicePlayback;
+      try { source.stop(); } catch { /* Already ended. */ }
+      source.disconnect(); gain.disconnect(); this.voicePlayback = null;
+    }
     for (const horn of this.horns) {
       horn.gain.gain.cancelScheduledValues(0); horn.gain.gain.value = 0;
       try { horn.oscillator.stop(); horn.vibrato.stop(); } catch { /* Already ended. */ }
