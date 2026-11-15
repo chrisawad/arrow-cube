@@ -3,8 +3,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACE_BASIS } from './cube-surface.js';
 
 const EXTENT = 1.028;
-const WIDTH = 0.021; // 75% wider than the original 0.012-radius stroke.
-const CORNER = 0.075; // A shallow bend, under 4% of the cube's side length.
+const WIDTH = 0.05; // A bold band, about 2.4 times the previous stroke width.
+const CORNER = 0.10; // Keep the wider band's inner corner smooth and shallow.
 
 /** Smooth connected yellow corners and cap isolated ends, in cube coordinates. */
 export function yellowEdgeGeometries(edges) {

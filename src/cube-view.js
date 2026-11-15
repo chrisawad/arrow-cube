@@ -272,11 +272,13 @@ export class CubeView {
     this.scene.add(fill);
     this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035),
       new THREE.MeshBasicMaterial({ color: 0xe2f1ff, opacity: 0.15, transparent: true, depthWrite: false }));
-    this.body.renderOrder = 2;
+    // Composite the cube and edge markings first. Neither writes depth, so
+    // every arrow layer remains visible over the yellow bands at any rotation.
+    this.body.renderOrder = 0;
     this.cube.add(this.body);
     this.edgeFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.044, 2.044, 2.044)),
       new THREE.LineBasicMaterial({ color: 0xf4f6ff, transparent: true, opacity: 0.55, depthWrite: false }));
-    this.edgeFrame.renderOrder = 5;
+    this.edgeFrame.renderOrder = 1;
     this.cube.add(this.edgeFrame);
     this.faces = FACE_ROTATIONS.map((angles, index) => {
       const canvas = document.createElement('canvas');
@@ -289,14 +291,14 @@ export class CubeView {
       plane.rotation.set(...angles);
       plane.position.copy(new THREE.Vector3(0, 0, 1.021).applyEuler(plane.rotation));
       plane.userData.face = index;
-      plane.renderOrder = 3;
+      plane.renderOrder = 4;
       this.cube.add(plane);
       const ghostMaterial = new THREE.ShaderMaterial({ uniforms: { arrows: { value: texture } },
         vertexShader: 'varying vec2 texCoord; void main(){ texCoord=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
         fragmentShader: 'uniform sampler2D arrows; varying vec2 texCoord; void main(){ float a=texture2D(arrows,texCoord).a; if(a<0.015)discard; gl_FragColor=vec4(1.0,1.0,1.0,a*0.96); }',
         side: THREE.BackSide, transparent: true, depthWrite: false });
       const ghost = new THREE.Mesh(plane.geometry, ghostMaterial);
-      ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 1;
+      ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 3;
       this.cube.add(ghost);
       return { canvas, ctx: canvas.getContext('2d'), texture, material, plane, ghost, ghostMaterial };
     });
@@ -372,8 +374,8 @@ export class CubeView {
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
-      const material = new THREE.MeshBasicMaterial({ color: '#ffe600', transparent: true, opacity: 1, depthWrite: false });
-      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 5;
+      const material = new THREE.MeshBasicMaterial({ color: '#ffff00', transparent: true, opacity: 1, depthWrite: false });
+      const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(1.028), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {
@@ -483,7 +485,7 @@ export class CubeView {
     const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
     const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
-    mesh.renderOrder = 4;
+    mesh.renderOrder = 5;
     this.cube.add(mesh);
     let resolve;
     const promise = new Promise(r => { resolve = r; });
@@ -513,7 +515,7 @@ export class CubeView {
     const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
     const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
-    mesh.renderOrder = 4;
+    mesh.renderOrder = 5;
     this.cube.add(mesh);
     let resolve;
     const promise = new Promise(r => { resolve = r; });
