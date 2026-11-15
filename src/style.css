@@ -1,6 +1,6 @@
 :root {
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #263342; background: #e2f1f8; font-synthesis: none;
+  color: #263342; background: var(--game-background, #e2f1f8); font-synthesis: none;
   --purple: #6258f5; --muted: #748492; --line: #bed2df; --ink: #263342;
   --left: max(1rem, env(safe-area-inset-left, 0px));
   --right: max(1rem, env(safe-area-inset-right, 0px));
@@ -101,6 +101,26 @@ dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:2
 
 #settings-dialog { max-block-size: calc(100dvh - 24px); overflow-y: auto; }
 #settings-dialog h2 { font-size: 1.6rem; margin-block: .3rem 1.25rem; }
+#theme-dialog { position: fixed; inset: auto var(--right) calc(var(--bottom) + 4.25rem) auto; margin: 0; inline-size: min(20rem, calc(100% - var(--left) - var(--right))); max-block-size: calc(100dvh - var(--top) - var(--bottom) - 5rem); overflow-y: auto; padding: 1.25rem; }
+#theme-dialog::backdrop { background: transparent; backdrop-filter: none; }
+#theme-dialog h2 { font-size: 1.4rem; margin: 0 2rem .3rem 0; }
+#theme-dialog .theme-intro { font-size: .75rem; color: #526575; margin: .25rem 0 .75rem; }
+.color-part-label { display: block; font-size: .75rem; color: #435665; margin-block-end: .3rem; }
+#color-part { inline-size: 100%; min-block-size: 44px; padding: .5rem; border: 1px solid #8499a9; border-radius: .6rem; background: #fff; color: #263342; font-size: .8rem; }
+#color-preview { flex: none; display: block; inline-size: 28px; block-size: 28px; border: 1px solid #526575; border-radius: .4rem; background: var(--swatch); forced-color-adjust: none; }
+.color-selected { display: flex; align-items: center; gap: .5rem; min-block-size: 32px; margin-block: .75rem .5rem; }
+.color-selected h3 { font-size: .75rem; margin: 0; }
+#color-wheel { inline-size: 190px; block-size: 190px; margin: .5rem auto .75rem; touch-action: none; forced-color-adjust: none; }
+.color-sliders { display: grid; gap: .2rem; }
+.color-sliders label { display: flex; justify-content: space-between; font-size: .75rem; color: #435665; }
+.color-sliders output { font-variant-numeric: tabular-nums; }
+#color-brightness { inline-size: 100%; min-block-size: 32px; margin: 0 0 .5rem; accent-color: #6258d5; border-radius: 1rem; background: linear-gradient(to right, #000, var(--bright-color, #ffff00)); }
+.color-hex-label { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #435665; font-size: .75rem; }
+#color-hex { inline-size: 7rem; min-inline-size: 0; min-block-size: 40px; border: 1px solid #8499a9; border-radius: .5rem; padding: .4rem; background: #fff; color: #263342; font: 1rem ui-monospace, monospace; }
+#theme-dialog .color-error { margin: .3rem 0 0; color: #ad3434; font-size: .7rem; line-height: 1.3; }
+#theme-dialog .color-error:empty { display: none; }
+#theme-dialog .secondary { min-block-size: 40px; margin-block-start: .75rem; }
+@media (max-width: 600px) { #theme-dialog { inset-inline: var(--left) var(--right); margin-inline: auto; max-block-size: min(75dvh, calc(100dvh - 6rem)); } }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-block-size: 60px; padding-block: .65rem; border-block-end: 1px solid #dce7ed; font-size: .85rem; }
 .setting-row > label { flex: 1; }
 .setting-row select { max-inline-size: 65%; padding: .5rem; border: 1px solid #c5d6e3; border-radius: .6rem; background: #fff; color: var(--ink); }

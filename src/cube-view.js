@@ -5,6 +5,7 @@ import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.
 import { orientArrow, reverseAtProgress } from './arrow-orientation.js';
 import { traceExitRoute, redirectorDirection, flippedRedirectorIds } from './routing.js';
 import { yellowEdgeGeometries, YELLOW_EDGE_EXTENT } from './yellow-edges.js';
+import { DEFAULT_THEME, normalizeTheme, hexToRgb } from './theme.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
 // top-left grid origin; the plane UV conversion below shares that convention.
@@ -17,10 +18,6 @@ const INITIAL_CORNERS = [];
 for (const x of [-1.024, 1.024]) for (const y of [-1.024, 1.024]) for (const z of [-1.024, 1.024]) {
   INITIAL_CORNERS.push(new THREE.Vector3(x, y, z).applyQuaternion(INITIAL));
 }
-const INK = '#15191f';
-const HINT = '#5b55e7';
-const BLOCKED = '#e16457';
-const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef', PURPLE = '#b64bed';
 const COLOR_START = 0.45, COLOR_END = 0.55;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
@@ -35,8 +32,8 @@ function segmentFraction(p, a, b) {
   return clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
 }
 
-function pathColor(progress) {
-  const a = [55, 180, 135], b = [241, 198, 67], t = clamp((progress - COLOR_START) / (COLOR_END - COLOR_START), 0, 1);
+function pathColor(progress, theme) {
+  const a = hexToRgb(theme.end1), b = hexToRgb(theme.end2), t = clamp((progress - COLOR_START) / (COLOR_END - COLOR_START), 0, 1);
   return `rgb(${a.map((value, i) => Math.round(value + (b[i] - value) * t)).join(',')})`;
 }
 
@@ -47,36 +44,36 @@ function paintHead(ctx, point, direction, color, unit, shape) {
   ctx.closePath(); ctx.fill();
 }
 
-function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintReverse) {
+function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintReverse, colored, theme) {
   const points = fragment.points.map(point => ({ x: point.x + 0.5, y: point.y + 0.5 }));
-  const colored = color === INK, length = arrow.cells.length - 1;
+  const length = arrow.cells.length - 1;
   for (let i = 1; i < points.length; i++) {
     let stroke = color;
     if (colored) {
       const from = fragment.progress[i - 1] / length, to = fragment.progress[i] / length;
       stroke = ctx.createLinearGradient(points[i - 1].x * unit, points[i - 1].y * unit, points[i].x * unit, points[i].y * unit);
-      stroke.addColorStop(0, pathColor(from));
+      stroke.addColorStop(0, pathColor(from, theme));
       // Keep the transition boundaries exact even when one short segment
       // crosses them both. Endpoint colors alone would spread the gradient.
       for (const boundary of [COLOR_START, COLOR_END]) {
         if (boundary > Math.min(from, to) && boundary < Math.max(from, to)) {
-          stroke.addColorStop((boundary - from) / (to - from), pathColor(boundary));
+          stroke.addColorStop((boundary - from) / (to - from), pathColor(boundary, theme));
         }
       }
-      stroke.addColorStop(1, pathColor(to));
+      stroke.addColorStop(1, pathColor(to, theme));
     }
     paintArrow(ctx, [points[i - 1], points[i]], arrow.direction, stroke, unit, shape, false);
   }
   if (fragment.progress[0] === 0) {
-    const tailColor = colored ? GREEN : hintReverse === false ? '#a6bac6' : color;
+    const tailColor = colored ? theme.end1 : hintReverse === false ? '#a6bac6' : color;
     paintHead(ctx, points[0], orientArrow(arrow, size, true).direction, tailColor, unit, shape);
   }
-  if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? GOLD : hintReverse === true ? '#a6bac6' : color, unit, shape);
+  if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? theme.end2 : hintReverse === true ? '#a6bac6' : color, unit, shape);
 }
 
-function paintRedirector(ctx, marker, unit, flipped) {
+function paintRedirector(ctx, marker, unit, flipped, theme) {
   const d = redirectorDirection(marker, flipped), side = { x: -d.y, y: d.x }, center = { x: marker.x + 0.5, y: marker.y + 0.5 };
-  ctx.strokeStyle = marker.flipping ? PURPLE : BLUE;
+  ctx.strokeStyle = marker.flipping ? theme.flip : theme.fixed;
   ctx.lineWidth = unit * (marker.flipping ? 0.15 : 0.12); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const offset of marker.flipping ? [0.14] : [-0.19, 0.17]) {
     const tip = { x: center.x + d.x * (offset + 0.13), y: center.y + d.y * (offset + 0.13) };
@@ -87,7 +84,7 @@ function paintRedirector(ctx, marker, unit, flipped) {
     ctx.stroke();
   }
   if (marker.flipping) {
-    ctx.fillStyle = PURPLE; ctx.beginPath();
+    ctx.fillStyle = theme.flip; ctx.beginPath();
     ctx.arc((center.x - d.x * 0.18) * unit, (center.y - d.y * 0.18) * unit, unit * 0.075, 0, Math.PI * 2);
     ctx.fill();
   }
@@ -228,14 +225,16 @@ function ribbonGeometry(track, distance, shape) {
   return geometry;
 }
 
-function flyingMaterial(initialColor = INK, arrow = null, reverse = false) {
+function flyingMaterial(theme, blocked, arrow, reverse = false) {
+  const initialColor = blocked ? theme.crash : theme.ink;
   const color = new THREE.Color(initialColor);
   const material = new THREE.ShaderMaterial({
-    uniforms: { ink: { value: color }, opacity: { value: 1 }, colored: { value: arrow?.bidirectional && initialColor === INK ? 1 : 0 },
-      tailInk: { value: new THREE.Color(reverse ? GOLD : GREEN) }, headInk: { value: new THREE.Color(reverse ? GREEN : GOLD) },
+    uniforms: { ink: { value: color }, opacity: { value: 1 }, colored: { value: arrow?.bidirectional && !blocked ? 1 : 0 },
+      tailInk: { value: new THREE.Color(reverse ? theme.end2 : theme.end1) }, headInk: { value: new THREE.Color(reverse ? theme.end1 : theme.end2) },
+      ghostInk: { value: new THREE.Color(theme.ghost) },
       colorWindow: { value: new THREE.Vector2(COLOR_START, COLOR_END) } },
     vertexShader: 'attribute float pathProgress; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ lineProgress=pathProgress; vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
-    fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform vec2 colorWindow; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); float blend=clamp((lineProgress-colorWindow.x)/(colorWindow.y-colorWindow.x),0.0,1.0); vec3 lineInk=mix(ink,mix(tailInk,headInk,blend),colored); gl_FragColor=vec4(mix(vec3(1.0),lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
+    fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform vec3 ghostInk; uniform vec2 colorWindow; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); float blend=clamp((lineProgress-colorWindow.x)/(colorWindow.y-colorWindow.x),0.0,1.0); vec3 lineInk=mix(ink,mix(tailInk,headInk,blend),colored); gl_FragColor=vec4(mix(ghostInk,lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
     side: THREE.DoubleSide, transparent: true, depthWrite: true,
   });
   material.color = color;
@@ -243,7 +242,8 @@ function flyingMaterial(initialColor = INK, arrow = null, reverse = false) {
 }
 
 export class CubeView {
-  constructor(container, { onSelect = () => {}, onInteract = () => {}, motion = 'full' } = {}) {
+  constructor(container, { onSelect = () => {}, onInteract = () => {}, motion = 'full', theme } = {}) {
+    this.theme = normalizeTheme(theme);
     this.container = container;
     this.onSelect = onSelect;
     this.onInteract = onInteract;
@@ -313,15 +313,16 @@ export class CubeView {
       plane.userData.face = index;
       plane.renderOrder = 4;
       this.cube.add(plane);
-      const ghostMaterial = new THREE.ShaderMaterial({ uniforms: { arrows: { value: texture } },
+      const ghostMaterial = new THREE.ShaderMaterial({ uniforms: { arrows: { value: texture }, ghostInk: { value: new THREE.Color(this.theme.ghost) } },
         vertexShader: 'varying vec2 texCoord; void main(){ texCoord=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-        fragmentShader: 'uniform sampler2D arrows; varying vec2 texCoord; void main(){ float a=texture2D(arrows,texCoord).a; if(a<0.015)discard; gl_FragColor=vec4(1.0,1.0,1.0,a*0.96); }',
+        fragmentShader: 'uniform sampler2D arrows; uniform vec3 ghostInk; varying vec2 texCoord; void main(){ float a=texture2D(arrows,texCoord).a; if(a<0.015)discard; gl_FragColor=vec4(ghostInk,a*0.96);\n#include <colorspace_fragment>\n}',
         side: THREE.BackSide, transparent: true, depthWrite: false });
       const ghost = new THREE.Mesh(plane.geometry, ghostMaterial);
       ghost.position.copy(plane.position); ghost.quaternion.copy(plane.quaternion); ghost.renderOrder = 2;
       this.cube.add(ghost);
       return { canvas, ctx: canvas.getContext('2d'), texture, material, plane, ghost, ghostMaterial };
     });
+    this.setTheme(this.theme);
     this.raycaster = new THREE.Raycaster();
     this.bindInput();
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -334,6 +335,26 @@ export class CubeView {
     this.reducedMotion = this.motionMode === 'reduced'
       || (this.motionMode === 'auto' && this.motionPreference.matches);
     if (this.reducedMotion) this.velocity.x = this.velocity.y = 0;
+  }
+
+  setTheme(value) {
+    this.theme = normalizeTheme(value);
+    this.body?.material.color.set(this.theme.background);
+    this.edgeFrame?.material.color.set(this.theme.ghost);
+    for (const face of this.faces) {
+      if (face.ghostMaterial.uniforms.ghostInk) face.ghostMaterial.uniforms.ghostInk.value.set(this.theme.ghost);
+    }
+    for (const animation of this.animations.values()) {
+      const { material, reverse, arrow } = animation;
+      const blocked = this.blocked.has(arrow.id) || animation.impacted;
+      material.color.set(blocked ? this.theme.crash : this.theme.ink);
+      material.uniforms.colored.value = arrow.bidirectional && !blocked ? 1 : 0;
+      material.uniforms.tailInk.value.set(reverse ? this.theme.end2 : this.theme.end1);
+      material.uniforms.headInk.value.set(reverse ? this.theme.end1 : this.theme.end2);
+      material.uniforms.ghostInk.value.set(this.theme.ghost);
+    }
+    this.drawFaces();
+    this.schedule();
   }
 
   resize() {
@@ -402,8 +423,8 @@ export class CubeView {
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
-      const material = new THREE.MeshBasicMaterial({ color: '#d797be', transparent: true, opacity: 1, depthWrite: false });
-      const backColor = new THREE.Color('#d797be'), frontColor = new THREE.Color('#c23e8a');
+      const material = new THREE.MeshBasicMaterial({ color: (this.theme ?? DEFAULT_THEME).edge, transparent: true, opacity: 1, depthWrite: false });
+      const backColor = new THREE.Color(), frontColor = new THREE.Color();
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 3;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
@@ -418,6 +439,9 @@ export class CubeView {
         // Only opaque facing bands occlude geometry behind them. Arrow planes
         // and moving ribbons sit outside the inset band and stay visible in front.
         material.depthWrite = visible === 1;
+        const theme = this.theme ?? DEFAULT_THEME;
+        frontColor.set(theme.edge);
+        backColor.set(theme.background).lerp(frontColor, 0.55);
         material.color.copy(backColor).lerp(frontColor, visible);
       };
       this.featureEdges.add(mesh);
@@ -427,21 +451,23 @@ export class CubeView {
 
   drawFaces(onlyFace = null) {
     if (!this.puzzle) return;
-    const size = getGridSize(this.puzzle), shape = arrowShape(this.puzzle);
+    const size = getGridSize(this.puzzle), shape = arrowShape(this.puzzle), theme = this.theme ?? DEFAULT_THEME;
     this.faces.forEach((face, index) => {
       if (onlyFace !== null && index !== onlyFace) return;
       const { ctx, canvas, texture } = face, unit = canvas.width / size;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const marker of this.puzzle.redirectors || []) if (marker.face === index) paintRedirector(ctx, marker, unit, this.visibleFlips.has(marker.id));
+      for (const marker of this.puzzle.redirectors || []) if (marker.face === index) paintRedirector(ctx, marker, unit, this.visibleFlips.has(marker.id), theme);
       for (const arrow of this.arrowsByFace[index]) {
         if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
-        const color = this.highlighted?.id === arrow.id ? (this.highlighted.type === 'blocked' ? BLOCKED : HINT)
-          : this.blocked.has(arrow.id) ? BLOCKED : INK;
+        const highlighted = this.highlighted?.id === arrow.id;
+        const colored = !highlighted && !this.blocked.has(arrow.id);
+        const color = highlighted ? (this.highlighted.type === 'blocked' ? theme.crash : theme.hint)
+          : this.blocked.has(arrow.id) ? theme.crash : theme.ink;
         for (const fragment of this.fragmentsById.get(arrow.id)) {
           if (fragment.face !== index) continue;
           if (arrow.bidirectional) {
             const hinted = this.highlighted?.id === arrow.id && this.highlighted.type === 'hint';
-            paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hinted ? Boolean(this.highlighted.reverse) : undefined);
+            paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hinted ? Boolean(this.highlighted.reverse) : undefined, colored, theme);
           } else paintArrow(ctx, fragment.points.map(p => ({ x: p.x + 0.5, y: p.y + 0.5 })), arrow.direction, color, unit, shape, fragment.head);
         }
       }
@@ -531,7 +557,7 @@ export class CubeView {
     const routed = Boolean(this.puzzle.generatorVersion >= 11 || this.puzzle.wrapEdges?.length || this.puzzle.redirectors?.length || arrow.bidirectional);
     const route = routed ? traceExitRoute(this.puzzle, original, reverse) : null;
     const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
-    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
+    const material = flyingMaterial(this.theme ?? DEFAULT_THEME, this.blocked.has(id), arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
     mesh.renderOrder = 5;
     this.cube.add(mesh);
@@ -561,7 +587,7 @@ export class CubeView {
     const routed = Boolean(this.puzzle.generatorVersion >= 11 || this.puzzle.wrapEdges?.length || this.puzzle.redirectors?.length || arrow.bidirectional);
     const route = routed ? traceExitRoute(this.puzzle, original, reverse) : null;
     const shape = arrowShape(this.puzzle), track = surfaceTrack(arrow, this.puzzle, route);
-    const material = flyingMaterial(this.blocked.has(id) ? BLOCKED : INK, arrow, reverse);
+    const material = flyingMaterial(this.theme ?? DEFAULT_THEME, this.blocked.has(id), arrow, reverse);
     const mesh = new THREE.Mesh(ribbonGeometry(track, 0, shape), material);
     mesh.renderOrder = 5;
     this.cube.add(mesh);
@@ -755,7 +781,8 @@ export class CubeView {
           animation.mesh.geometry = ribbonGeometry(animation.track, state.distance, animation.shape);
           animation.lastDistance = state.distance;
         }
-        animation.material.color.set(state.color === 'blocked' ? BLOCKED : INK);
+        const theme = this.theme ?? DEFAULT_THEME;
+        animation.material.color.set(state.color === 'blocked' ? theme.crash : theme.ink);
         animation.material.uniforms.colored.value = animation.arrow.bidirectional && state.color !== 'blocked' ? 1 : 0;
         if (state.impacted && !animation.impacted) {
           animation.impacted = true;

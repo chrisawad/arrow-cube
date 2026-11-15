@@ -11,6 +11,11 @@
     "preview": "vite preview",
     "test": "node --test tests/*.test.js"
   },
-  "dependencies": { "three": "^0.182.0" },
-  "devDependencies": { "vite": "^7.3.0" }
+  "dependencies": {
+    "@jaames/iro": "5.5.2",
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
 }

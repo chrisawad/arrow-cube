@@ -5,6 +5,8 @@ import vm from 'node:vm';
 import { generatePuzzle, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION } from '../src/engine.js';
 import { applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors } from '../src/routing.js';
 import * as lifeRules from '../src/lives.js';
+import { normalizeTheme, DEFAULT_THEME } from '../src/theme.js';
+import { setupThemeControls } from '../src/theme-controls.js';
 
 // Exercise the actual entry point and DOM event handlers with the real puzzle
 // engine. Only browser rendering/audio/storage boundaries are replaced here;
@@ -39,22 +41,30 @@ class Element {
   }
   click() { return this.emit('click'); }
   setAttribute(key, value) { this.attributes.set(key, value); }
+  removeAttribute(key) { this.attributes.delete(key); }
   getAttribute(key) { return this.attributes.get(key) ?? null; }
   showModal() { this.open = true; }
   close() { const wasOpen = this.open; this.open = false; if (wasOpen) this.emit('close'); }
   focus() { this.focused = true; }
   select() { this.selected = true; }
   remove() { this.removed = true; }
+  getBoundingClientRect() { return { left: 0, top: 0, width: 200, height: 200 }; }
+  setPointerCapture(id) { this.capturedPointer = id; }
 }
 
-function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now = 1800000000000 } = {}) {
-  const ids = [...source.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]);
+function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now = 1800000000000, popover = false } = {}) {
+  const markup = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const ids = [...source.matchAll(/\$\('([^']+)'\)/g), ...markup.matchAll(/id="([^"]+)"/g)].map(match => match[1]);
   const elements = new Map(ids.map(id => [id, new Element()]));
+  if (popover) Object.assign(elements.get('theme-dialog'), {
+    showPopover() { this.visible = true; }, hidePopover() { this.visible = false; },
+  });
   const hearts = Array.from({length: 5}, () => new Element());
   const resetIcons = Array.from({length: 8}, () => new Element());
   const presets = [3, 5, 8, 12].map(size => Object.assign(new Element(), { dataset: { size: String(size) } }));
   const document = Object.assign(new Element(), {
     visibilityState: 'visible',
+    documentElement: new Element(),
     getElementById: id => elements.get(id)?.removed ? null : elements.get(id),
     querySelectorAll: selector => selector === '[data-heart]' ? hearts : selector === '[data-reset]' ? resetIcons : selector === '[data-size]' ? presets
       : selector === 'dialog' ? [...elements.entries()].filter(([id]) => id.endsWith('-dialog')).map(([, element]) => element) : [],
@@ -67,12 +77,13 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     window.location.href = cleanURL.href;
     window.location.search = cleanURL.search;
   } };
-  const saves = [], sounds = { prepared: 0, swoosh: 0, blocked: 0, win: 0 }, views = [];
+  const saves = [], sounds = { prepared: 0, swoosh: 0, blocked: 0, win: 0 }, views = [], wheels = [];
   class View {
     calls = [];
     animations = [];
     constructor(_stage, options) { this.options = options; this.setMotionMode(options.motion); views.push(this); }
     setMotionMode(mode) { this.motionMode = mode; }
+    setTheme(theme) { this.theme = theme; }
     setPuzzle(puzzle, removed, blocked) {
       for (const animation of this.animations) animation.resolve(false);
       this.animations = [];
@@ -103,7 +114,10 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
   vm.runInNewContext(source, {
     document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION,
     applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors,
-    ...lifeRules, Date: Clock,
+    ...lifeRules, normalizeTheme, setupThemeControls, Date: Clock,
+    createColorWheel: (_element, options) => {
+      const wheel = { options, setHsv(hsv) { this.hsv = { ...hsv }; } }; wheels.push(wheel); return wheel;
+    },
     CubeView: View, GameAudio: Audio, loadProgress: () => saved,
     saveProgress: progress => { saves.push(structuredClone(progress)); return true; },
     setupInstall: () => {}, matchMedia: () => ({ matches: false }),
@@ -114,7 +128,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
   const view = views[0];
   assert.equal(view.calls.length, 1, 'startup must initialize the board');
   return {
-    view, saves, sounds, views, presets, hearts, resetIcons, get: id => elements.get(id), search: () => window.location.search,
+    view, saves, sounds, views, presets, hearts, resetIcons, wheels, get: id => elements.get(id), search: () => window.location.search,
     state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())), pagehide: () => window.emit('pagehide'),
     advance(milliseconds) { now += milliseconds; for (const callback of intervals) callback(); },
     visibility(state) { document.visibilityState = state; document.emit('visibilitychange'); },
@@ -611,4 +625,53 @@ test('Go back preserves a lost board while waiting, and a recovered reset resume
   assert.equal(animation.type, 'remove');
   animation.resolve(true); await playing;
   assert(h.state().removed.includes(1));
+});
+
+
+test('theme opens from both controls, previews wheel and hex colors, and restores without touching progress', () => {
+  for (const popover of [false, true]) {
+    const h = boot(saveFor(5, 23, { removed: [0], blocked: [1], crashes: 2 }), { popover });
+    const initial = h.state(), calls = h.view.calls.length;
+    h.get('settings').click(); h.get('theme-settings').click();
+    assert.equal(h.get('settings-dialog').open, false);
+    assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);
+    assert.equal(h.get('color-hex').value, '#ffff00');
+    h.wheels[0].options.onChange({ h: 200, s: 1, v: 1 });
+    assert.equal(h.view.theme.edge, '#00aaff');
+    assert.equal(h.get('color-preview').style['--swatch'], '#00aaff');
+    assert.equal(h.saves.at(-1).theme.edge, '#00aaff');
+    h.get('color-brightness').value = '50'; h.get('color-brightness').emit('input');
+    assert.equal(h.saves.at(-1).theme.edge, '#005580');
+    h.get('color-part').value = 'background'; h.get('color-part').emit('change');
+    h.get('color-hex').value = '#ABCDEF'; h.get('color-hex').emit('input');
+    assert.equal(h.saves.at(-1).theme.background, '#abcdef');
+    assert.equal(h.get('theme-color').getAttribute('content'), '#abcdef');
+    const restored = boot(h.saves.at(-1));
+    assert.equal(restored.view.options.theme.edge, '#005580');
+    assert.equal(restored.view.options.theme.background, '#abcdef');
+    h.get('color-hex').value = '#nope'; h.get('color-hex').emit('change');
+    assert.equal(h.get('color-hex').getAttribute('aria-invalid'), 'true');
+    assert.equal(h.saves.at(-1).theme.background, '#abcdef');
+    h.get('theme-defaults').click();
+    assert.deepEqual(h.saves.at(-1).theme, DEFAULT_THEME);
+    assert.equal(h.get('color-hex').getAttribute('aria-invalid'), 'false');
+    h.get('theme-close').click(); h.get('theme-open').click();
+    assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);
+    assert.deepEqual(h.state(), initial);
+    assert.equal(h.view.calls.length, calls, 'palette updates cannot regenerate the puzzle');
+  }
+});
+
+test('changing colors during a departure leaves its pending animation, resources, and committed move intact', async () => {
+  const h = boot(saveFor());
+  const id = h.state().available[0], playing = h.view.options.onSelect(id);
+  const state = h.state(), animation = h.view.animations.at(-1);
+  assert(state.busy);
+  h.get('color-hex').value = '#123456'; h.get('color-hex').emit('input');
+  assert.equal(h.view.animations.at(-1), animation);
+  assert.equal(h.view.calls.length, 1);
+  assert.deepEqual(h.state(), state);
+  assert.equal(h.saves.at(-1).theme.edge, '#123456');
+  animation.resolve(true); await playing;
+  assert.equal(h.state().busy, false);
 });

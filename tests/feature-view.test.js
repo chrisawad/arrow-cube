@@ -6,6 +6,7 @@ import { traceExitRoute, cubeEdges } from '../src/routing.js';
 import { yellowEdgeGeometries } from '../src/yellow-edges.js';
 import { cellToWorld } from '../src/cube-surface.js';
 import { arrowFragments, findArrowCollision } from '../src/arrow-motion.js';
+import { DEFAULT_THEME } from '../src/theme.js';
 
 const right = { x: 1, y: 0 }, down = { x: 0, y: 1 };
 const source = { id: 0, face: 0, direction: right,
@@ -21,7 +22,7 @@ function fixture(puzzle = chain) {
     const ctx = { clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, arc() {},
       createLinearGradient() { return { addColorStop() {} }; },
       stroke() { strokes.push(this.strokeStyle); }, fill() { fills.push(this.fillStyle); } };
-    return { canvas, texture, ctx, plane: new THREE.Mesh(), material: { map: texture }, ghostMaterial: { uniforms: { arrows: { value: texture } } } };
+    return { canvas, texture, ctx, plane: new THREE.Mesh(), material: { map: texture }, ghostMaterial: { uniforms: { arrows: { value: texture }, ghostInk: { value: new THREE.Color('#ffffff') } } } };
   });
   Object.assign(view, { removed: new Set(), blocked: new Set(), animations: new Map(), pointers: new Map(), velocity: { x: 0, y: 0 },
     reducedMotion: false, cube: new THREE.Group(), faces, renderer: { render() {} }, schedule() {}, updateCamera() {} });
@@ -227,4 +228,53 @@ test('switching boards during a purple animation clears its transient direction'
   assert(view.visibleFlips.has(9));
   view.setPuzzle(purpleFixture());
   assert.equal(await done, false); assert.equal(view.visibleFlips.size, 0);
+});
+
+
+test('live themes repaint markers, arrowheads, ghost faces and solid bands without replacing board geometry', () => {
+  const puzzle = { ...chain, redirectors: [...chain.redirectors, { id: 5, face: 0, x: 2, y: 2, direction: down, flipping: true }],
+    arrows: [{ ...source, bidirectional: true }] };
+  const { view, fills, strokes } = fixture(puzzle), edges = view.featureEdges, geometry = edges.children[0].geometry;
+  const theme = { ...DEFAULT_THEME, edge: '#cc6600', end1: '#ff0000', end2: '#0000ff', fixed: '#113355', flip: '#557799', ghost: '#aabbcc' };
+  view.setTheme(theme);
+  assert.equal(view.puzzle, puzzle); assert.equal(view.featureEdges, edges); assert.equal(edges.children[0].geometry, geometry);
+  assert(fills.includes(theme.end1) && fills.includes(theme.end2));
+  assert(strokes.includes(theme.fixed) && strokes.includes(theme.flip));
+  assert(view.faces.every(face => face.ghostMaterial.uniforms.ghostInk.value.getHexString() === 'aabbcc'));
+  const camera = new THREE.PerspectiveCamera(); camera.position.set(0, 0, 7); camera.updateMatrixWorld();
+  edges.children[0].updateWorldMatrix(true, false); edges.children[0].onBeforeRender(null, null, camera);
+  assert.equal(edges.children[0].material.color.getHexString(), 'cc6600');
+  assert.equal(edges.children[0].material.opacity, 1); assert.equal(edges.children[0].material.depthWrite, true);
+  // Matching user-selected ink/crash colors must not turn blocked double arrows back into colored ones.
+  view.blocked.add(0); fills.length = 0;
+  view.setTheme({ ...theme, ink: '#ff0000', crash: '#ff0000' });
+  assert(!fills.includes(theme.end2));
+});
+
+test('live theme edits preserve reverse departure progress and color its actual leading end', async () => {
+  const { view } = fixture({ ...chain, arrows: [{ ...source, bidirectional: true }] });
+  const done = view.removeArrow(0, { reverse: true }), animation = view.animations.get(0);
+  const geometry = animation.mesh.geometry, start = animation.start, route = animation.route;
+  view.setTheme({ ...DEFAULT_THEME, end1: '#123456', end2: '#abcdef', ghost: '#dddddd' });
+  assert.equal(view.animations.get(0), animation); assert.equal(animation.mesh.geometry, geometry);
+  assert.equal(animation.start, start); assert.equal(animation.route, route);
+  assert.equal(animation.material.uniforms.headInk.value.getHexString(), '123456');
+  assert.equal(animation.material.uniforms.tailInk.value.getHexString(), 'abcdef');
+  assert.equal(animation.material.uniforms.ghostInk.value.getHexString(), 'dddddd');
+  view.frame(start + animation.duration + 1); assert.equal(await done, true);
+});
+
+test('a collision uses updated theme colors before contact, on impact, and after rollback', async () => {
+  const blocker = { id: 1, face: 5, direction: right, cells: [1, 2, 3].map(x => ({ face: 5, x, y: 3 })) };
+  const { view, fills } = fixture({ ...chain, arrows: [source, blocker] });
+  const done = view.bumpArrow(0), animation = view.animations.get(0); animation.start = 1000;
+  const theme = { ...DEFAULT_THEME, ink: '#123456', crash: '#654321' };
+  view.setTheme(theme);
+  view.frame(1000 + animation.timings.outbound - 1);
+  assert.equal(animation.material.color.getHexString(), '123456');
+  view.frame(1000 + animation.timings.outbound);
+  assert.equal(animation.material.color.getHexString(), '654321');
+  view.setTheme({ ...theme, crash: '#ff0000' });
+  view.frame(1000 + animation.timings.outbound + animation.timings.hold + animation.timings.rollback + 1);
+  assert.equal(await done, true); assert(view.blocked.has(0)); assert(fills.includes('#ff0000'));
 });

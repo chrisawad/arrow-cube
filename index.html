@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#e2f1f8"><meta name="description" content="Untangle a rotating cube of arrows. Every puzzle is solvable. Play, grow, and pick up right where you left off.">
+  <meta id="theme-color" name="theme-color" content="#e2f1f8"><meta name="description" content="Untangle a rotating cube of arrows. Every puzzle is solvable. Play, grow, and pick up right where you left off.">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/arrow-cube-game-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="./icons/arrow-cube-game-192.png" type="image/png" sizes="192x192">
@@ -35,6 +35,7 @@
         <div class="game-controls">
           <div class="game-toolbar" role="group" aria-label="Game controls">
             <button id="hint" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></svg><span id="hint-label">Hint</span></button>
+            <button id="theme-open" type="button" aria-label="Theme colors" title="Theme colors" aria-haspopup="dialog" aria-controls="theme-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.4-3.4c-.6-.6-.2-1.6.7-1.6H17a4 4 0 0 0 4-4 9 9 0 0 0-9-9Z"/><circle cx="7" cy="11" r=".8"/><circle cx="10" cy="7" r=".8"/><circle cx="15" cy="7" r=".8"/><circle cx="18" cy="11" r=".8"/></svg></button>
             <button id="help" type="button" aria-label="How to play" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.4 9a2.7 2.7 0 0 1 5.3.8c0 1.9-2.7 2-2.7 3.7M12 17h.01"/></svg></button>
             <button id="settings" type="button" aria-label="Settings" aria-haspopup="dialog" aria-controls="settings-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.6 2.3-1.8 1L4.3 6 2.8 8.6 4.5 10v2l-1.7 1.4L4.3 16l2.3-.3 1.8 1L9 19h3l.6-2.3 1.8-1 2.3.3 1.5-2.6-1.7-1.4v-2l1.7-1.4L16.7 6l-2.3.3-1.8-1L12 3Z" transform="translate(1.5 1)"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
@@ -49,9 +50,34 @@
     <div class="settings-list">
       <div class="setting-row"><label for="sound">Sound</label><button id="sound" class="toggle" type="button" aria-pressed="true">On</button></div>
       <div class="setting-row"><label for="motion-select">Animation</label><select id="motion-select"><option value="auto">Follow device</option><option value="full" selected>Full animation</option><option value="reduced">Reduced motion</option></select></div>
+      <button id="theme-settings" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="theme-dialog"><span>Theme colors</span><span aria-hidden="true">›</span></button>
       <button id="choose-size" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="difficulty-dialog"><span>Difficulty</span><span><b id="dimension">5 × 5</b> <span aria-hidden="true">›</span></span></button>
     </div>
     <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><div><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">Install help</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button></div></div>
+  </dialog>
+  <dialog id="theme-dialog" popover="auto" aria-labelledby="theme-title">
+    <button id="theme-close" class="dialog-close" type="button" aria-label="Close theme colors" autofocus>×</button>
+    <h2 id="theme-title">Theme colors</h2>
+    <p class="theme-intro">Choose a part, then choose its color. Changes are saved.</p>
+    <label class="color-part-label" for="color-part">Color to change</label>
+    <select id="color-part">
+      <option value="edge">Slide edges</option><option value="ink">Arrows</option>
+      <option value="end1">Double arrow · first end</option><option value="end2">Double arrow · second end</option>
+      <option value="fixed">Fixed turn markers</option><option value="flip">Reversing turn markers</option>
+      <option value="background">Background</option><option value="ghost">Far-side arrows</option>
+      <option value="crash">Crashed arrows</option><option value="hint">Hint</option>
+    </select>
+    <section class="color-editor" aria-labelledby="color-name">
+      <div class="color-selected"><i id="color-preview" aria-hidden="true"></i><h3 id="color-name">Slide edges</h3></div>
+      <div id="color-wheel" aria-hidden="true"></div>
+      <div class="color-sliders">
+        <label for="color-brightness">Brightness <output id="color-brightness-value" for="color-brightness">100%</output></label>
+        <input id="color-brightness" type="range" min="0" max="100" step="1" value="100">
+      </div>
+      <label class="color-hex-label" for="color-hex">Hex <input id="color-hex" type="text" value="#ffff00" maxlength="7" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="color-error"></label>
+      <p id="color-error" class="color-error" aria-live="polite"></p>
+    </section>
+    <button id="theme-defaults" class="secondary" type="button">Restore default colors</button>
   </dialog>
   <dialog id="difficulty-dialog" aria-labelledby="difficulty-title">
     <form id="difficulty-form" aria-labelledby="difficulty-title">
@@ -93,34 +119,34 @@
     <ul class="help-legend">
       <li>
         <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true">
-          <defs><linearGradient id="help-two-ends" x1="0" y1="0" x2="1" y2="0"><stop offset="0.45" stop-color="#37b487"/><stop offset="0.55" stop-color="#f1c643"/></linearGradient></defs>
+          <defs><linearGradient id="help-two-ends" x1="0" y1="0" x2="1" y2="0"><stop offset="0.45" stop-color="var(--game-end1, #37b487)"/><stop offset="0.55" stop-color="var(--game-end2, #f1c643)"/></linearGradient></defs>
           <path d="M16 19h17v20h24V17h15" fill="none" stroke="url(#help-two-ends)" stroke-width="7" stroke-linejoin="round"/>
-          <path d="m7 19 14-9v18Z" fill="#37b487"/><path d="m81 17-14-9v18Z" fill="#f1c643"/>
+          <path d="m7 19 14-9v18Z" fill="var(--game-end1, #37b487)"/><path d="m81 17-14-9v18Z" fill="var(--game-end2, #f1c643)"/>
         </svg>
-        <div><h3>Two-ended arrow</h3><p>Tap the green half to move the green end first. Tap the yellow half to move the yellow end first.</p></div>
+        <div><h3>Two-ended arrow</h3><p>Tap either half. The arrowhead on that half moves first.</p></div>
       </li>
       <li>
-        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m27 15 14 13-14 13m22-26 14 13-14 13" fill="none" stroke="#74ccef" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <div><h3>Blue turn marker</h3><p>The front end turns in the marker direction. The marker does not change.</p></div>
+        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m27 15 14 13-14 13m22-26 14 13-14 13" fill="none" stroke="var(--game-fixed, #74ccef)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><h3>Fixed turn marker</h3><p>The front end turns in the marker direction. The marker does not change.</p></div>
       </li>
       <li>
-        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m41 15 14 13-14 13" fill="none" stroke="#b64bed" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="28" r="4" fill="#b64bed"/></svg>
-        <div><h3>Purple turn marker</h3><p>The front end turns in the marker direction. The marker then reverses direction. If the arrow leaves the cube, the marker keeps its new direction. After a crash, the marker returns to its previous direction.</p></div>
+        <svg class="help-symbol help-marker" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m41 15 14 13-14 13" fill="none" stroke="var(--game-flip, #b64bed)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25" cy="28" r="4" fill="var(--game-flip, #b64bed)"/></svg>
+        <div><h3>Reversing turn marker</h3><p>The front end turns in the marker direction. The marker then reverses direction. If the arrow leaves the cube, the marker keeps its new direction. After a crash, the marker returns to its previous direction.</p></div>
       </li>
       <li>
-        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m14 16 27-9 32 10v25l-28 9-31-12Zm0 0 31 11 28-10M45 27v24" fill="#e2f1f8" stroke="#748492" stroke-width="1.5" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#8f2c65" stroke-width="8" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#c23e8a" stroke-width="5" stroke-linejoin="round"/><path d="m28 15 0 7 24 8 12-4" fill="none" stroke="#15191f" stroke-width="4" stroke-linejoin="round"/><path d="m69 24-8-2 3 8Z" fill="#15191f"/></svg>
-        <div><h3>Magenta slide edge</h3><p>The arrow moves around this edge to the next face. The edge works in both directions.</p></div>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="m14 16 27-9 32 10v25l-28 9-31-12Zm0 0 31 11 28-10M45 27v24" fill="#e2f1f8" stroke="#748492" stroke-width="1.5" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="#748492" stroke-width="8" stroke-linejoin="round"/><path d="m14 16 31 11v24" fill="none" stroke="var(--game-edge, #ffff00)" stroke-width="5" stroke-linejoin="round"/><path d="m28 15 0 7 24 8 12-4" fill="none" stroke="var(--game-ink, #15191f)" stroke-width="4" stroke-linejoin="round"/><path d="m69 24-8-2 3 8Z" fill="var(--game-ink, #15191f)"/></svg>
+        <div><h3>Slide edge</h3><p>The arrow moves around this edge to the next face. The edge works in both directions.</p></div>
       </li>
       <li>
-        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="M69 10v36" stroke="#15191f" stroke-width="7" stroke-linecap="round"/><path d="M12 39h19V22h18" fill="none" stroke="#e16457" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><path d="m61 22-15-9v18Z" fill="#e16457"/></svg>
-        <div><h3>Crash</h3><p>The arrow turns red and moves back. Each crash removes one heart. With no hearts, use a reset or restart the same puzzle.</p></div>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><path d="M69 10v36" stroke="var(--game-ink, #15191f)" stroke-width="7" stroke-linecap="round"/><path d="M12 39h19V22h18" fill="none" stroke="var(--game-crash, #e16457)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/><path d="m61 22-15-9v18Z" fill="var(--game-crash, #e16457)"/></svg>
+        <div><h3>Crash</h3><p>The arrow changes to the crash color and moves back. Each crash removes one heart. With no hearts, use a reset or restart the same puzzle.</p></div>
       </li>
       <li>
         <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><circle cx="44" cy="28" r="20" fill="#e8e6ff" stroke="#6258d5" stroke-width="2.5"/><path d="M33 23a12 12 0 1 1-1 10M33 15v10h10" fill="none" stroke="#6258d5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div><h3>Reset</h3><p>A reset restores five hearts and keeps your progress. You can have four resets. One reset returns every three hours.</p></div>
       </li>
       <li>
-        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><rect x="6" y="5" width="76" height="46" rx="5" fill="#c5deeb"/><path d="M17 20h21v17h20" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><path d="m70 37-14-9v18Z" fill="#fff"/></svg>
+        <svg class="help-symbol" width="88" height="56" viewBox="0 0 88 56" aria-hidden="true"><rect x="6" y="5" width="76" height="46" rx="5" fill="#c5deeb"/><path d="M17 20h21v17h20" fill="none" stroke="var(--game-ghost, #fff)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><path d="m70 37-14-9v18Z" fill="var(--game-ghost, #fff)"/></svg>
         <div><h3>Pale arrow</h3><p>This arrow is on the far side. Turn the cube to select it.</p></div>
       </li>
     </ul>

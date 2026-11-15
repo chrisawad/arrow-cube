@@ -1,5 +1,6 @@
 import { getGridSizeForVersion } from './cube-surface.js';
 import { restoreResets, normalizeCrashes } from './lives.js';
+import { normalizeTheme } from './theme.js';
 
 export const STORAGE_KEY = 'arrow-cube-progress-v1';
 const VERSION = 1;
@@ -36,7 +37,7 @@ export function normalizeProgress(value) {
   const motion = ['auto', 'full', 'reduced'].includes(value.motion) ? value.motion : 'full';
   return { version: VERSION, generatorVersion, size: value.size, seed: value.seed, removed, blocked,
     flippedRedirectors, moves: value.moves, sound: value.sound !== false, bestSize, motion,
-    crashes: normalizeCrashes(value.crashes), resets: restoreResets(value) };
+    crashes: normalizeCrashes(value.crashes), resets: restoreResets(value), theme: normalizeTheme(value.theme) };
 }
 
 export function loadProgress() {

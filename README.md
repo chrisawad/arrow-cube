@@ -6,7 +6,7 @@ The cube canvas fills the viewport, with progress and controls floating above it
 
 Each puzzle starts with five hearts. Each crash removes one; the fifth crash opens the loss screen. Successful releases and hints are unlimited. A reset token refills all five hearts while keeping puzzle progress; it can also be used early by tapping the reset icons. Players can hold four reset tokens and recover one every three hours, including time offline. With no hearts or reset tokens, choose Go back to wait on the same board, or restart the exact same puzzle for free. An arrow attempt at zero hearts reopens the refill choice. Go back does not change progress, hearts, or the recovery timer. Starting or restarting a puzzle restores hearts but never refills reset tokens. Saves retain the seed, cleared paths, hearts, reset balance, and recovery deadline. Older life balances migrate to reset tokens capped at four.
 
-The compact HUD shows the level, completion percentage and bar, five heart icons, and four reset icons. Only Hint, Help, and Settings remain below the cube. Settings holds difficulty, sound, animation, and installation controls.
+The compact HUD shows the level, completion percentage and bar, five heart icons, and four reset icons. Hint, Theme colors, Help, and Settings sit below the cube. Settings holds theme colors, difficulty, sound, animation, and installation controls. The Theme panel uses the bundled iro.js color wheel with brightness and hex controls. Select a game part to preview its color immediately; choices persist on this device. Restore default colors returns the slide edges to yellow without changing the puzzle.
 
 ## Run
 
@@ -77,7 +77,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 - **Level equals cube dimension**. New cubes use about 1.6 surface lanes per dimension unit, rounded to a whole number with a minimum of four lanes: level 5 has an 8 × 8 lane grid on each face. Earlier saved boards retain their original grid.
 - New games start at **5 × 5**. Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension. Saved games resume at their current dimension.
 - Ordinary paths have one arrowhead. Green-to-yellow paths have two: clicking the green half leads with the green end; clicking the yellow half leads with the yellow end. The split follows distance along the line, including bends and face crossings.
-- **Magenta slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Thick magenta strokes have shallow rounded corner joins and rounded ends.
+- **Yellow slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Thick yellow strokes have shallow rounded corner joins and rounded ends.
 - **Light-blue double chevrons** are fixed cell markers. When a moving line's leading tip reaches one, it turns in the marked direction. Lines keep moving through any number of edges and redirectors until they hit an obstacle or leave an unmarked edge.
 - **Purple chevrons with a dot** redirect the leading tip, then flip 180 degrees on each pass, including straight-through passes and repeat visits. Successful exits keep the flips; a collision unwinds them as the line rolls back. Their current directions are saved with the board.
 - New boards mix ordinary paths with long winding arrows of **3–75 cells**. Random turns, mixed directions, and edge crossings create dependency chains, so most arrows need another path cleared first. Small gaps are allowed.
@@ -96,8 +96,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 | Click or tap a path | Release it if its exit is clear |
 | Tap either half of a green/yellow path | Choose the corresponding endpoint as the leading head |
 | Hint | Rotate to and highlight a removable arrow |
-| Reset view | Restore the starting view |
-| Restart | Restore the same puzzle and seed |
+| Theme colors | Edit game colors; changes are saved |
 | Sound | Toggle the swoosh and other synthesized sounds |
 | Arrow motion | Follow device settings, use full animations, or reduce movement |
 | Arrow keys while the cube is focused | Rotate |
@@ -154,3 +153,5 @@ The next empty reset icon fills from bottom to top as its three-hour recharge in
 On touch screens, twist two fingers to rotate the cube in the screen plane. This works together with pinch-to-zoom. Lifting or canceling a finger does not release an arrow or change the current zoom unexpectedly.
 
 Two-ended arrows keep solid green and yellow across the outer 45% of each end, with a short color transition in the center 10%. The same color range applies to static arrows, movement animations, and the Help symbol. Slide edges currently use magenta, with the existing background fade and arrow-over-edge draw order.
+
+The color wheel is provided by [iro.js](https://iro.js.org/), bundled locally under MPL-2.0. Its license is included in `public/licenses/iro.js-LICENSE.txt`; no library source modifications are made.

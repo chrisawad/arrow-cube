@@ -4,11 +4,15 @@ import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
 import {setupInstall} from './install.js';
+import {normalizeTheme} from './theme.js';
+import {setupThemeControls} from './theme-controls.js';
+import {createColorWheel} from './color-wheel.js';
 import {MAX_HEARTS,MAX_RESETS,recoverResets,restoreResets,spendReset,normalizeCrashes,recoveryCountdown,resetRechargeFraction} from './lives.js';
 
 const $ = id => document.getElementById(id);
 let puzzle, removed = new Set(), blocked = new Set(), moves = 0, busy = false, hintId = null, hintReverse = false, generation = 0, toastTimer;
 const saved = loadProgress();
+let theme = normalizeTheme(saved?.theme);
 let resets = restoreResets(saved,Date.now()), crashes = 0;
 let bestSize = saved?.bestSize || 5, soundEnabled = saved?.sound ?? true;
 const requestedMotion = new URLSearchParams(window.location.search).get('motion');
@@ -17,7 +21,7 @@ const audio = new GameAudio(soundEnabled);
 let view;
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
-function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
+function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,bestSize,motion:motionMode,theme});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
 function paintResources(now){
   const hearts=Math.max(0,MAX_HEARTS-crashes);
   const recharge=resetRechargeFraction(resets,now);
@@ -125,8 +129,9 @@ async function selectArrow(id,reverse=false){
     if(turn===generation)busy=false;
   }
 }
-function hint(){if(busy)return;if(crashes>=MAX_HEARTS){showLoss();return;}if(removed.size===puzzle.arrows.length){showWin();return;}const available=getRemovable(puzzle,removed);if(!available.length)return;const arrow=available[0];hintId=arrow.id;hintReverse=Boolean(arrow.reverse);view.focusFace(arrow.face);view.highlight(arrow.id,'hint',hintReverse);notify(arrow.bidirectional?'The purple arrowhead has a clear route. Tap its half of the line.':'The purple arrow has a clear route. Tap it to let it go.');}
-try{view=new CubeView($('cube-stage'),{onSelect:selectArrow,motion:motionMode});start(saved?.size||5,saved?.seed??seed(),saved);}catch(error){console.error(error);$('loading').textContent='The 3D view could not start. Enable hardware acceleration or try another browser.';}
+function hint(){if(busy)return;if(crashes>=MAX_HEARTS){showLoss();return;}if(removed.size===puzzle.arrows.length){showWin();return;}const available=getRemovable(puzzle,removed);if(!available.length)return;const arrow=available[0];hintId=arrow.id;hintReverse=Boolean(arrow.reverse);view.focusFace(arrow.face);view.highlight(arrow.id,'hint',hintReverse);notify(arrow.bidirectional?'The highlighted arrowhead has a clear route. Tap its half of the line.':'The highlighted arrow has a clear route. Tap it to let it go.');}
+try{view=new CubeView($('cube-stage'),{onSelect:selectArrow,motion:motionMode,theme});start(saved?.size||5,saved?.seed??seed(),saved);}catch(error){console.error(error);$('loading').textContent='The 3D view could not start. Enable hardware acceleration or try another browser.';}
+setupThemeControls({document,initial:theme,createWheel:createColorWheel,onChange:colors=>{theme=colors;view?.setTheme(theme);if(puzzle)persist();}});
 $('motion-select').value=motionMode;
 if(['auto','full','reduced'].includes(requestedMotion)){
   const cleanURL=new URL(window.location.href);
@@ -158,7 +163,7 @@ $('choose-size').addEventListener('click',()=>{if(crashes>=MAX_HEARTS){showLoss(
 $('help').addEventListener('click',()=>$('help-dialog').showModal());
 $('settings').addEventListener('click',()=>$('settings-dialog').showModal());
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
-document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(dialog!==$('loss-dialog')&&event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
+document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(dialog!==$('loss-dialog')&&dialog!==$('theme-dialog')&&event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
 function clearSizeError(){
   $('size-input').setAttribute('aria-invalid','false');
   $('size-input').setAttribute('aria-describedby','size-help');
