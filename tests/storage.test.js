@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadProgress, saveProgress, normalizeProgress, STORAGE_KEY } from '../src/storage.js';
 
-const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto' });
+const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto', crashes: 0, lives: { count: 5, nextAt: null } });
 test('progress round trips the puzzle seed, removed paths, dimension, and settings', () => {
   const values = new Map();
   globalThis.localStorage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
@@ -51,9 +51,9 @@ test('legacy saves retain their original generator, seed, dimension, and removed
   let stored = JSON.stringify(legacy);
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   const restored = loadProgress();
-  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full' });
+  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, lives: { count: 5, nextAt: null } });
   assert.equal(saveProgress(restored), true);
-  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full' });
+  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full', crashes: 0, lives: { count: 5, nextAt: null } });
 });
 test('current generator version round trips without changing the existing storage schema or key', () => {
   let stored;
@@ -135,4 +135,20 @@ test('purple marker orientations round trip, deduplicate, default for older save
   for (const flippedRedirectors of [null, {}, [-1], [NaN], [''], [false], Array(33).fill(1)]) {
     assert.equal(normalizeProgress({ ...valid(), flippedRedirectors }), null);
   }
+});
+
+test('loss and recovery deadlines round trip and restore earned lives without changing the saved puzzle', () => {
+  const now = Date.now(), interval = 3 * 60 * 60 * 1000;
+  const progress = { ...valid(), crashes: 6, lives: { count: 2, nextAt: now + interval } };
+  let stored;
+  globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
+  assert.equal(saveProgress(progress), true);
+  assert.deepEqual(loadProgress(), { version: 1, ...progress });
+  stored = JSON.stringify({ version: 1, ...progress, lives: { count: 0, nextAt: now - 2 * interval - 1000 } });
+  const restored = loadProgress();
+  assert.equal(restored.lives.count, 3);
+  assert.equal(restored.lives.nextAt, now + interval - 1000);
+  assert.equal(restored.crashes, 6);
+  assert.equal(restored.seed, progress.seed);
+  assert.deepEqual(restored.removed, progress.removed);
 });

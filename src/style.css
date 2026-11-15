@@ -48,6 +48,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .progress-track > div { background: var(--purple); block-size: 100%; inline-size: 0; transition: width .35s; }
 .progress-label { display: flex; justify-content: space-between; gap: .75rem; font-size: .7rem; color: #657c8a; margin-block-start: .5rem; }
 .progress-label b { color: #3e4f61; }
+.attempt-status { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: .2rem .5rem; margin-block-start: .65rem; color: #526b7c; font-size: .7rem; font-variant-numeric: tabular-nums; }
+.lives-meter > span { color: #ce516b; }
+#crash-meter.at-limit { color: #ad3f45; font-weight: 650; }
+#life-recharge { grid-column: 1 / -1; color: #657c8a; font-size: .65rem; }
 .size-button { display: flex; justify-content: space-between; gap: .5rem; inline-size: 100%; background: transparent; border-block-start: 1px solid #d3e2eb; color: #525cc4; text-align: start; font-size: .7rem; font-weight: 650; margin-block-start: .75rem; padding: .75rem 0 0; }
 .play-area { position: fixed; inset: 0; block-size: 100dvh; z-index: 0; }
 #cube-stage { position: absolute; inset: 0; touch-action: none; }
@@ -113,6 +117,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* Modal dialogs stay in the native top layer. */
+dialog:modal { overscroll-behavior: contain; }
+dialog::backdrop { overflow: hidden; overscroll-behavior: contain; }
 dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:25px;padding:36px;background:#f6fbff;color:var(--ink);box-shadow:0 30px 100px #1b3b5730}dialog::backdrop{background:#20384655;backdrop-filter:blur(7px)}dialog h2{font-size:34px;line-height:1.12;letter-spacing:-1.2px;margin:16px 0 20px;font-weight:650}dialog p{font-size:13px;color:#728494;line-height:1.7}dialog .small{font-size:11px;margin:20px 0}.dialog-close{position:absolute;right:18px;top:15px;font-size:26px;background:transparent;color:#8b9ca8;border-radius:50%;width:34px;height:34px}.difficulty-options{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:25px 0}.difficulty-options button{border:1px solid #d4e2ec;background:white;border-radius:12px;padding:15px 2px;display:flex;flex-direction:column;gap:8px;color:var(--ink)}.difficulty-options button strong{font-size:17px}.difficulty-options button span{font-size:10px;color:#8a99a4}.difficulty-options button.selected{border-color:var(--purple);background:#eeedff;color:var(--purple)}.custom-size{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#687c8d}.custom-size input{width:80px;border:1px solid #cfdee8;background:white;border-radius:8px;padding:10px;color:var(--ink)}.primary{width:100%;display:flex;align-items:center;justify-content:space-between;border-radius:12px;background:var(--purple);color:white;padding:17px 20px;font-weight:650;font-size:13px}.primary:hover{background:#5146e5}#win-dialog{text-align:center}.win-mark{font-size:64px;color:var(--purple);margin-bottom:15px}#win-dialog .primary{margin-top:25px}#win-dialog .quiet{margin-top:12px}
 
 #difficulty-dialog{max-height:calc(100dvh - 24px);scroll-padding-bottom:85px}
@@ -121,5 +127,14 @@ dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:2
 #size-input:user-invalid,#size-input[aria-invalid=true]{border-color:#b33d37;background:#fff1ef}
 .difficulty-submit{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(#f6fbff00,#f6fbff 12px)}
 #install-dialog{max-height:calc(100dvh - 24px)}#install-status{color:var(--ink);font-weight:650}#install-dialog>.quiet{display:block;margin:12px auto 0}#install-dialog .primary{margin-top:20px}#install-help,#install{white-space:nowrap}button[aria-disabled=true]{opacity:.55;cursor:wait}
+
+#loss-dialog { max-block-size: calc(100dvh - 24px); overflow-y: auto; text-align: center; }
+.loss-mark { color: #ce516b; font-size: 3rem; line-height: 1; margin-block-end: .75rem; }
+.loss-bank { display: flex; flex-direction: column; gap: .25rem; font-variant-numeric: tabular-nums; }
+.loss-bank strong { color: var(--ink); }
+#loss-dialog .primary { justify-content: center; }
+.secondary { inline-size: 100%; min-block-size: 48px; margin-block-start: .6rem; padding: .75rem; border: 1px solid #c7d5e8; border-radius: .75rem; background: #fff; color: #525cc4; font-size: .85rem; font-weight: 650; }
+.secondary:hover { background: #eeedff; }
+#use-life[hidden] + #loss-restart { background: var(--purple); color: white; border-color: var(--purple); }
 
 @media (max-width: 700px) { dialog { padding: 1.5rem; } }

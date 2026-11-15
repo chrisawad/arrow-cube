@@ -4,10 +4,12 @@ import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
 import {setupInstall} from './install.js';
+import {MAX_LIVES,CRASH_LIMIT,recoverLives,spendLife,normalizeCrashes,recoveryCountdown} from './lives.js';
 
 const $ = id => document.getElementById(id);
 let puzzle, removed = new Set(), blocked = new Set(), moves = 0, busy = false, hintId = null, hintReverse = false, generation = 0, toastTimer;
 const saved = loadProgress();
+let lives = recoverLives(saved?.lives,Date.now()), crashes = 0;
 let bestSize = saved?.bestSize || 5, soundEnabled = saved?.sound ?? true;
 const requestedMotion = new URLSearchParams(window.location.search).get('motion');
 let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'full';
@@ -15,10 +17,36 @@ const audio = new GameAudio(soundEnabled);
 let view;
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
-function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
-function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=String(puzzle.size).padStart(2,'0');$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('moves').textContent=moves;$('progress-percent').textContent=`${percent}%`;$('progress-fill').style.width=`${percent}%`;$('hint').lastChild.textContent=removed.size===count?' Next level':' Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').setAttribute('aria-label',soundEnabled?'Turn sound off':'Turn sound on');$('sound').title=soundEnabled?'Sound on':'Sound off';$('sound').textContent=soundEnabled?'♫':'♪';persist();}
+function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,lives,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
+function refreshLives(save = true){
+  const now=Date.now(), recovered=recoverLives(lives,now);
+  const changed=recovered.count!==lives.count||recovered.nextAt!==lives.nextAt;
+  lives=recovered;
+  $('lives-count').textContent=lives.count;
+  $('life-recharge').textContent=recoveryCountdown(lives,now);
+  $('crashes-count').textContent=crashes;
+  $('crash-meter').classList.toggle('at-limit',crashes>=CRASH_LIMIT);
+  $('crash-meter').title=crashes>CRASH_LIMIT?'This attempt has ended.':crashes===CRASH_LIMIT?'The next crash ends this attempt.':'Five crashes are allowed; the sixth ends the attempt.';
+  $('choose-size').disabled=crashes>CRASH_LIMIT;
+  $('hint').disabled=crashes>CRASH_LIMIT;
+  $('use-life').hidden=lives.count===0;
+  $('loss-lives').textContent=`${lives.count} of ${MAX_LIVES} lives available`;
+  $('loss-recharge').textContent=recoveryCountdown(lives,now);
+  $('loss-description').textContent=lives.count>0
+    ? 'The sixth crash ended this attempt. Spend one life for five more allowed crashes and keep your progress, or reset the same puzzle for free.'
+    : 'The sixth crash ended this attempt. You have no lives left. Reset the same puzzle for free to try again.';
+  if(changed&&save&&puzzle)persist();
+}
+function showLoss(){
+  if(crashes<=CRASH_LIMIT)return;
+  refreshLives();
+  if(!$('loss-dialog').open)$('loss-dialog').showModal();
+}
+function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=String(puzzle.size).padStart(2,'0');$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('moves').textContent=moves;$('progress-percent').textContent=`${percent}%`;$('progress-fill').style.width=`${percent}%`;$('hint').lastChild.textContent=removed.size===count?' Next level':' Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').setAttribute('aria-label',soundEnabled?'Turn sound off':'Turn sound on');$('sound').title=soundEnabled?'Sound on':'Sound off';$('sound').textContent=soundEnabled?'♫':'♪';refreshLives(false);persist();}
 function start(size,boardSeed=seed(),restore=null){
   generation++;busy=false;hintId=null;hintReverse=false;
+  crashes=normalizeCrashes(restore?.crashes);
+  if($('loss-dialog').open)$('loss-dialog').close();
   clearTimeout(toastTimer);$('toast').classList.remove('visible');
   puzzle=generatePuzzle(size,boardSeed,restore?.generatorVersion??GENERATOR_VERSION);
   restoreRedirectors(puzzle,restore?.flippedRedirectors);
@@ -29,10 +57,13 @@ function start(size,boardSeed=seed(),restore=null){
   view.setPuzzle(puzzle,removed,blocked);view.resetView();
   $('loading')?.remove();update();
   if(removed.size===puzzle.arrows.length)showWin();
+  else if(crashes>CRASH_LIMIT)showLoss();
 }
 function showWin(){const maxed=puzzle.size>=64;$('win-description').textContent=maxed?`You cleared the largest cube: ${puzzle.size} × ${puzzle.size}. Ready for a fresh challenge?`:`Level ${puzzle.size}, cleared in ${moves} moves. Your next cube is ${puzzle.size+1} × ${puzzle.size+1}, with a whole new set of paths.`;$('next-level').firstChild.textContent=maxed?'Another master cube ':'Next dimension ';if(!$('win-dialog').open)$('win-dialog').showModal();}
 async function selectArrow(id,reverse=false){
-  if(busy||removed.has(id)||!puzzle.arrows.some(a=>a.id===id))return;
+  if(busy)return;
+  if(crashes>CRASH_LIMIT){showLoss();return;}
+  if(removed.has(id)||!puzzle.arrows.some(a=>a.id===id))return;
   const selected=puzzle.arrows.find(a=>a.id===id);
   if(reverse&&!selected.bidirectional)return;
   hintId=null;
@@ -49,10 +80,14 @@ async function selectArrow(id,reverse=false){
         if(turn!==generation||impacted)return;
         impacted=true;
         blocked.add(id);
+        crashes++;
+        refreshLives(false);
         persist();
         audio.blocked();
-        notify(selected.bidirectional?'That route is blocked. Clear it or try the other half.':'Another line is in the way. Clear its route first.');
+        if(crashes===CRASH_LIMIT)notify('Five crashes. The next crash ends this attempt.');
+        else if(crashes<CRASH_LIMIT)notify(`Crash ${crashes} of ${CRASH_LIMIT}. Clear the blocked route first.`);
       }});
+      if(turn===generation&&crashes>CRASH_LIMIT)showLoss();
       return;
     }
     audio.swoosh();
@@ -71,7 +106,7 @@ async function selectArrow(id,reverse=false){
     if(turn===generation)busy=false;
   }
 }
-function hint(){if(busy)return;if(removed.size===puzzle.arrows.length){showWin();return;}const available=getRemovable(puzzle,removed);if(!available.length)return;const arrow=available[0];hintId=arrow.id;hintReverse=Boolean(arrow.reverse);view.focusFace(arrow.face);view.highlight(arrow.id,'hint',hintReverse);notify(arrow.bidirectional?'The purple arrowhead has a clear route. Tap its half of the line.':'The purple arrow has a clear route. Tap it to let it go.');}
+function hint(){if(busy)return;if(crashes>CRASH_LIMIT){showLoss();return;}if(removed.size===puzzle.arrows.length){showWin();return;}const available=getRemovable(puzzle,removed);if(!available.length)return;const arrow=available[0];hintId=arrow.id;hintReverse=Boolean(arrow.reverse);view.focusFace(arrow.face);view.highlight(arrow.id,'hint',hintReverse);notify(arrow.bidirectional?'The purple arrowhead has a clear route. Tap its half of the line.':'The purple arrow has a clear route. Tap it to let it go.');}
 try{view=new CubeView($('cube-stage'),{onSelect:selectArrow,motion:motionMode});start(saved?.size||5,saved?.seed??seed(),saved);}catch(error){console.error(error);$('loading').textContent='The 3D view could not start. Enable hardware acceleration or try another browser.';}
 $('motion-select').value=motionMode;
 if(['auto','full','reduced'].includes(requestedMotion)){
@@ -87,12 +122,25 @@ $('motion-select').addEventListener('change',()=>{
 });
 $('hint').addEventListener('click',hint);
 $('reset-view').addEventListener('click',()=>view.resetView());
-$('restart').addEventListener('click',()=>{if(busy)return;start(puzzle.size,puzzle.seed,{generatorVersion:puzzle.generatorVersion});notify('A fresh start on the same puzzle.');});
+function restartPuzzle(){if(busy)return;start(puzzle.size,puzzle.seed,{generatorVersion:puzzle.generatorVersion});notify('A fresh start on the same puzzle.');}
+$('restart').addEventListener('click',restartPuzzle);
+$('loss-restart').addEventListener('click',restartPuzzle);
+$('use-life').addEventListener('click',()=>{
+  if(busy||crashes<=CRASH_LIMIT)return;
+  const spent=spendLife(lives,Date.now());
+  if(!spent){refreshLives();return;}
+  lives=spent;crashes=0;
+  $('loss-dialog').close();
+  update();
+  notify('One life used. Five fresh crashes allowed.');
+});
+$('loss-dialog').addEventListener('cancel',event=>event.preventDefault());
+$('loss-dialog').addEventListener('close',()=>{if(crashes>CRASH_LIMIT)showLoss();});
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;audio.setEnabled(soundEnabled);update();if(soundEnabled)audio.swoosh();});
-$('choose-size').addEventListener('click',()=>{$('size-input').value=puzzle.size;clearSizeError();syncChoice();$('difficulty-dialog').showModal();});
+$('choose-size').addEventListener('click',()=>{if(crashes>CRASH_LIMIT){showLoss();return;}$('size-input').value=puzzle.size;clearSizeError();syncChoice();$('difficulty-dialog').showModal();});
 $('help').addEventListener('click',()=>$('help-dialog').showModal());
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
-document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
+document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(dialog!==$('loss-dialog')&&event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
 function clearSizeError(){
   $('size-input').setAttribute('aria-invalid','false');
   $('size-input').setAttribute('aria-describedby','size-help');
@@ -129,6 +177,9 @@ $('next-level').addEventListener('click',()=>{$('win-dialog').close();start(Math
 $('cube-stage').addEventListener('keydown',event=>{if(event.defaultPrevented)return;const rotations={ArrowLeft:[-.22,0],ArrowRight:[.22,0],ArrowUp:[0,-.22],ArrowDown:[0,.22]};if(rotations[event.key]){event.preventDefault();view.rotateBy(...rotations[event.key]);}else if(event.key.toLowerCase()==='h'){event.preventDefault();hint();}else if(event.key==='Enter'&&hintId!==null){event.preventDefault();selectArrow(hintId,hintReverse);}});
 if(matchMedia('(pointer:coarse)').matches)$('gesture-help').textContent='Drag to rotate · Pinch to zoom · Tap to release';
 setupInstall($('install'),notify);
+setInterval(()=>{if(document.visibilityState!=='hidden')refreshLives();},1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')refreshLives();});
+window.addEventListener('pageshow',()=>refreshLives());
 window.addEventListener('pagehide',()=>{if(puzzle)persist();});
 // Read-only diagnostics for reproducible QA; gameplay continues through the public controls.
-window.__arrowCube={getState:()=>({size:puzzle?.size,gridSize:puzzle?.gridSize??puzzle?.size,generatorVersion:puzzle?.generatorVersion,seed:puzzle?.seed,remaining:puzzle?.arrows.length-removed.size,moves,removed:[...removed],blocked:[...blocked],available:puzzle?getRemovable(puzzle,removed).map(a=>a.id):[],availableMoves:puzzle?getRemovable(puzzle,removed).map(a=>({id:a.id,reverse:Boolean(a.reverse)})):[],wrapEdges:puzzle?.wrapEdges||[],redirectors:puzzle?.redirectors||[],bidirectional:puzzle?.arrows.filter(a=>a.bidirectional).map(a=>a.id)||[],busy,motion:motionMode,reducedMotion:view?.reducedMotion})};
+window.__arrowCube={getState:()=>({size:puzzle?.size,gridSize:puzzle?.gridSize??puzzle?.size,generatorVersion:puzzle?.generatorVersion,seed:puzzle?.seed,remaining:puzzle?.arrows.length-removed.size,moves,crashes,lives:{...lives},lost:crashes>CRASH_LIMIT,removed:[...removed],blocked:[...blocked],available:puzzle?getRemovable(puzzle,removed).map(a=>a.id):[],availableMoves:puzzle?getRemovable(puzzle,removed).map(a=>({id:a.id,reverse:Boolean(a.reverse)})):[],wrapEdges:puzzle?.wrapEdges||[],redirectors:puzzle?.redirectors||[],bidirectional:puzzle?.arrows.filter(a=>a.bidirectional).map(a=>a.id)||[],busy,motion:motionMode,reducedMotion:view?.reducedMotion})};

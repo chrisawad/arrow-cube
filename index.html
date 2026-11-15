@@ -23,6 +23,11 @@
           <div class="level-number"><span id="level">05</span></div>
           <div class="progress-track"><div id="progress-fill"></div></div>
           <div class="progress-label"><span><b id="remaining">0</b> arrows left</span><span id="progress-percent">0%</span></div>
+          <div class="attempt-status">
+            <span class="lives-meter"><span aria-hidden="true">♥</span> <b id="lives-count">5</b> / 5 lives</span>
+            <span id="crash-meter">Crashes <b id="crashes-count">0</b> / 5</span>
+            <span id="life-recharge">All lives ready</span>
+          </div>
           <button id="choose-size" class="size-button">Choose starting difficulty <span aria-hidden="true">↗</span></button>
         </section>
       </aside>
@@ -59,8 +64,18 @@
       <div class="difficulty-submit"><button class="primary" type="submit"><span id="start-cube-label">Start 5 × 5 cube</span><span aria-hidden="true">↗</span></button></div>
     </form>
   </dialog>
+  <dialog id="loss-dialog" aria-labelledby="loss-title" aria-describedby="loss-description" closedby="none">
+    <div class="loss-mark" aria-hidden="true">♡</div>
+    <span class="eyebrow">A CHANCE TO TRY AGAIN</span>
+    <h2 id="loss-title">Too many crashes.</h2>
+    <p id="loss-description">Use a life to continue, or reset the same puzzle.</p>
+    <p class="loss-bank"><strong id="loss-lives">5 of 5 lives available</strong><span id="loss-recharge">All lives ready</span></p>
+    <button id="use-life" class="primary" type="button" autofocus>Use 1 life · 5 more crashes</button>
+    <button id="loss-restart" class="secondary" type="button">Reset this puzzle · Free</button>
+    <p class="small">One life returns every 3 hours, up to 5. Resetting keeps this puzzle and your level, and clears your moves and crashes.</p>
+  </dialog>
   <dialog id="win-dialog"><div class="win-mark" aria-hidden="true">✧</div><span class="eyebrow">EVERY ARROW FOUND ITS WAY</span><h2>Beautifully<br>untangled.</h2><p id="win-description"></p><button id="next-level" class="primary">Next dimension <span aria-hidden="true">↗</span></button><button class="quiet" data-close>Stay a moment</button></dialog>
-  <dialog id="help-dialog"><button class="dialog-close" data-close aria-label="Close">×</button><span class="eyebrow">SIX SIDES. FIND YOUR ROUTE.</span><h2>Follow the arrow.</h2><p>Tap a line to send it in its arrowhead’s direction. If another line blocks its route, it hits the obstacle and slides back red.</p><p><strong>Yellow edges</strong> carry moving lines onto the neighboring face in either direction. <strong>Blue double chevrons</strong> are fixed markers: the leading tip turns to follow them.</p><p><strong>Purple chevrons with a dot</strong> turn the leading tip, then flip to point the opposite way. They keep their new direction after a successful exit. If the line crashes, they return to their original directions as it rolls back.</p><p><strong>Green/yellow lines have two arrowheads.</strong> Tap the green half to lead with the green end, or the yellow half to lead with the yellow end. A line keeps moving through every edge and redirector until it slides off an unmarked edge or collides.</p><p>Black and colored lines are on near faces. Pale lines show through from the far side—rotate the cube to reach them. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate, H for a hint, and Enter to release the hinted endpoint.</p><p>Your progress is saved on this device. After offline play finishes preparing, the game works without a connection.</p><button class="primary" data-close>Got it</button></dialog>
+  <dialog id="help-dialog"><button class="dialog-close" data-close aria-label="Close">×</button><span class="eyebrow">SIX SIDES. FIND YOUR ROUTE.</span><h2>Follow the arrow.</h2><p>Tap a line to send it in its arrowhead’s direction. If another line blocks its route, it hits the obstacle and slides back red.</p><p><strong>Yellow edges</strong> carry moving lines onto the neighboring face in either direction. <strong>Blue double chevrons</strong> are fixed markers: the leading tip turns to follow them.</p><p><strong>Purple chevrons with a dot</strong> turn the leading tip, then flip to point the opposite way. They keep their new direction after a successful exit. If the line crashes, they return to their original directions as it rolls back.</p><p><strong>Green/yellow lines have two arrowheads.</strong> Tap the green half to lead with the green end, or the yellow half to lead with the yellow end. A line keeps moving through every edge and redirector until it slides off an unmarked edge or collides.</p><p>Black and colored lines are on near faces. Pale lines show through from the far side—rotate the cube to reach them. Pinch or scroll to zoom. Every puzzle has a solution, and hints are always free.</p><p><strong>Keyboard:</strong> focus the cube, then use arrow keys to rotate, H for a hint, and Enter to release the hinted endpoint.</p><p><strong>Lives and crashes:</strong> five crashes are allowed; the sixth ends your attempt. Spend a life for five fresh allowed crashes, or reset the same puzzle for free. Successful releases are unlimited. One life returns every three hours, up to five, even while the app is closed.</p><p>Your progress is saved on this device. After offline play finishes preparing, the game works without a connection.</p><button class="primary" data-close>Got it</button></dialog>
   <dialog id="install-dialog" aria-labelledby="install-title">
     <button class="dialog-close" type="button" data-close aria-label="Close">×</button>
     <span class="eyebrow">TAKE THE CUBE WITH YOU</span>

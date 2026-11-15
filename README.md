@@ -4,6 +4,8 @@ A browser-local 3D arrow puzzle for desktop and touch screens. Rotate the cube, 
 
 The cube canvas fills the viewport, with progress and controls floating above it. Mobile controls respect safe-area insets and changing browser-bar heights. The stylesheet loads from the HTML head so the initial page is styled before the game JavaScript starts.
 
+Each attempt allows five crashes; the sixth opens the loss screen. Successful releases and hints are unlimited. Spend one life for a fresh five-crash allowance while keeping the current board progress, or reset the exact same puzzle for free. With no lives left, resetting is the only immediate action. A new player starts with five lives; one life recovers every three hours, capped at five, including time spent offline. Lives, the recovery deadline, and the current crash count are saved on the device. Restarting, changing size, and winning do not refill the life bank.
+
 ## Run
 
 Use a current Node.js LTS release and pnpm.
