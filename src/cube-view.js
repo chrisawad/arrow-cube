@@ -21,6 +21,7 @@ const INK = '#15191f';
 const HINT = '#5b55e7';
 const BLOCKED = '#e16457';
 const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef', PURPLE = '#b64bed';
+const COLOR_START = 0.45, COLOR_END = 0.55;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 function distanceToSegment(p, a, b) {
@@ -35,7 +36,7 @@ function segmentFraction(p, a, b) {
 }
 
 function pathColor(progress) {
-  const a = [55, 180, 135], b = [241, 198, 67], t = clamp(progress, 0, 1);
+  const a = [55, 180, 135], b = [241, 198, 67], t = clamp((progress - COLOR_START) / (COLOR_END - COLOR_START), 0, 1);
   return `rgb(${a.map((value, i) => Math.round(value + (b[i] - value) * t)).join(',')})`;
 }
 
@@ -52,9 +53,17 @@ function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintRever
   for (let i = 1; i < points.length; i++) {
     let stroke = color;
     if (colored) {
+      const from = fragment.progress[i - 1] / length, to = fragment.progress[i] / length;
       stroke = ctx.createLinearGradient(points[i - 1].x * unit, points[i - 1].y * unit, points[i].x * unit, points[i].y * unit);
-      stroke.addColorStop(0, pathColor(fragment.progress[i - 1] / length));
-      stroke.addColorStop(1, pathColor(fragment.progress[i] / length));
+      stroke.addColorStop(0, pathColor(from));
+      // Keep the transition boundaries exact even when one short segment
+      // crosses them both. Endpoint colors alone would spread the gradient.
+      for (const boundary of [COLOR_START, COLOR_END]) {
+        if (boundary > Math.min(from, to) && boundary < Math.max(from, to)) {
+          stroke.addColorStop((boundary - from) / (to - from), pathColor(boundary));
+        }
+      }
+      stroke.addColorStop(1, pathColor(to));
     }
     paintArrow(ctx, [points[i - 1], points[i]], arrow.direction, stroke, unit, shape, false);
   }
@@ -223,9 +232,10 @@ function flyingMaterial(initialColor = INK, arrow = null, reverse = false) {
   const color = new THREE.Color(initialColor);
   const material = new THREE.ShaderMaterial({
     uniforms: { ink: { value: color }, opacity: { value: 1 }, colored: { value: arrow?.bidirectional && initialColor === INK ? 1 : 0 },
-      tailInk: { value: new THREE.Color(reverse ? GOLD : GREEN) }, headInk: { value: new THREE.Color(reverse ? GREEN : GOLD) } },
+      tailInk: { value: new THREE.Color(reverse ? GOLD : GREEN) }, headInk: { value: new THREE.Color(reverse ? GREEN : GOLD) },
+      colorWindow: { value: new THREE.Vector2(COLOR_START, COLOR_END) } },
     vertexShader: 'attribute float pathProgress; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ lineProgress=pathProgress; vec4 p=modelViewMatrix*vec4(position,1.0); faceNormal=normalMatrix*normal; viewDirection=-p.xyz; gl_Position=projectionMatrix*p; }',
-    fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); vec3 lineInk=mix(ink,mix(tailInk,headInk,lineProgress),colored); gl_FragColor=vec4(mix(vec3(1.0),lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
+    fragmentShader: 'uniform vec3 ink; uniform vec3 tailInk; uniform vec3 headInk; uniform vec2 colorWindow; uniform float colored; uniform float opacity; varying float lineProgress; varying vec3 faceNormal; varying vec3 viewDirection; void main(){ float nearFace=step(0.0,dot(normalize(faceNormal),normalize(viewDirection))); float blend=clamp((lineProgress-colorWindow.x)/(colorWindow.y-colorWindow.x),0.0,1.0); vec3 lineInk=mix(ink,mix(tailInk,headInk,blend),colored); gl_FragColor=vec4(mix(vec3(1.0),lineInk,nearFace),opacity);\n#include <colorspace_fragment>\n}',
     side: THREE.DoubleSide, transparent: true, depthWrite: true,
   });
   material.color = color;
@@ -283,7 +293,7 @@ export class CubeView {
     this.body = new THREE.Mesh(new RoundedBoxGeometry(2.035, 2.035, 2.035, 3, 0.035),
       new THREE.MeshBasicMaterial({ color: 0xe2f1ff, opacity: 0.15, transparent: true, depthWrite: false }));
     // Composite the cube and edge markings first. Neither writes depth, so
-    // every arrow layer remains visible over the yellow bands at any rotation.
+    // every arrow layer remains visible over the gray bands at any rotation.
     this.body.renderOrder = 0;
     this.cube.add(this.body);
     this.edgeFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.044, 2.044, 2.044)),
@@ -392,7 +402,7 @@ export class CubeView {
     if (!edges.length) return;
     this.featureEdges = new THREE.Group();
     for (const [index, geometry] of yellowEdgeGeometries(edges).entries()) {
-      const material = new THREE.MeshBasicMaterial({ color: '#ffff00', transparent: true, opacity: 1, depthWrite: false });
+      const material = new THREE.MeshBasicMaterial({ color: '#939ba6', transparent: true, opacity: 1, depthWrite: false });
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
