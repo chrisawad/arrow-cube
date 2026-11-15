@@ -76,8 +76,8 @@ docker run --rm -p 8080:8080 arrow-cube:local
 
 - **Level equals cube dimension**. New cubes use about 1.6 surface lanes per dimension unit, rounded to a whole number with a minimum of four lanes: level 5 has an 8 × 8 lane grid on each face. Earlier saved boards retain their original grid.
 - New games start at **5 × 5**. Supported dimensions are **2–64**. Choose a starting size using the difficulty picker, including a custom dimension. Saved games resume at their current dimension.
-- Ordinary paths have one arrowhead. Green-to-yellow paths have two: clicking the green half leads with the green end; clicking the yellow half leads with the yellow end. The split follows distance along the line, including bends and face crossings.
-- **Gray slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Thick gray strokes have shallow rounded corner joins and rounded ends.
+- Ordinary paths have one arrowhead. Orange-to-blue paths have two: clicking the orange half leads with the orange end; clicking the blue half leads with the blue end. The split follows distance along the line, including bends and face crossings.
+- **Amber slide edges** wrap the entire shared edge in both directions. Moving lines continue onto the neighboring face instead of leaving the cube there. Amber strokes with a thin dark outline have shallow rounded corner joins and rounded ends.
 - **Light-blue double chevrons** are fixed cell markers. When a moving line's leading tip reaches one, it turns in the marked direction. Lines keep moving through any number of edges and redirectors until they hit an obstacle or leave an unmarked edge.
 - **Purple chevrons with a dot** redirect the leading tip, then flip 180 degrees on each pass, including straight-through passes and repeat visits. Successful exits keep the flips; a collision unwinds them as the line rolls back. Their current directions are saved with the board.
 - New boards mix ordinary paths with long winding arrows of **3–75 cells**. Random turns, mixed directions, and edge crossings create dependency chains, so most arrows need another path cleared first. Small gaps are allowed.
@@ -94,7 +94,7 @@ docker run --rm -p 8080:8080 arrow-cube:local
 | Drag with mouse or one finger | Smoothly rotate the cube |
 | Mouse wheel or two-finger pinch | Zoom |
 | Click or tap a path | Release it if its exit is clear |
-| Tap either half of a green/yellow path | Choose the corresponding endpoint as the leading head |
+| Tap either half of a orange/blue path | Choose the corresponding endpoint as the leading head |
 | Hint | Rotate to and highlight a removable arrow |
 | Reset view | Restore the starting view |
 | Restart | Restore the same puzzle and seed |
@@ -107,15 +107,15 @@ Arrow motion defaults to **Full animation**, with swoosh, collision, and rollbac
 
 ## Why generated boards are solvable
 
-Version 11 builds the gray slide edges and blue redirectors first. `src/feature-generator.js` then maintains a visibility frontier over the real flow field: a head can be selected only when its entire route through all redirects and creases is already empty and reaches an unmarked edge. Its tail grows only through still-occupied cells. The resulting carve order is a certified removal sequence. Closed flow loops are detected and never selected as exits.
+Version 11 builds the amber slide edges and blue redirectors first. `src/feature-generator.js` then maintains a visibility frontier over the real flow field: a head can be selected only when its entire route through all redirects and creases is already empty and reaches an unmarked edge. Its tail grows only through still-occupied cells. The resulting carve order is a certified removal sequence. Closed flow loops are detected and never selected as exits.
 
-A bounded search grows winding tails. Short pieces and later paths can join earlier tails up to the 75-cell limit; sub-three-cell leftovers become gaps. Heads that exercise a routing feature are retained. Version 12 removes every redirector that does not actually turn a line during the certified forward solution, preserving those escape routes. It then selects green/yellow paths against the final marker layout, from lines whose reverse endpoint can also eventually escape without hitting their own moving body. The generator reserves a useful approach to a redirector and has a deterministic routing layout for difficult seeds, ensuring every new puzzle contains and actually uses all three mechanics.
+A bounded search grows winding tails. Short pieces and later paths can join earlier tails up to the 75-cell limit; sub-three-cell leftovers become gaps. Heads that exercise a routing feature are retained. Version 12 removes every redirector that does not actually turn a line during the certified forward solution, preserving those escape routes. It then selects orange/blue paths against the final marker layout, from lines whose reverse endpoint can also eventually escape without hitting their own moving body. The generator reserves a useful approach to a redirector and has a deterministic routing layout for difficult seeds, ensuring every new puzzle contains and actually uses all three mechanics.
 
-Version 13 adds one or two useful purple redirectors. `src/flipping-generator.js` certifies a common removal order across every combination of their orientations, accounting for flips during a move. At each step, every orientation must offer a usable endpoint once earlier lines are gone. Therefore the earliest remaining line in that order can always escape after arbitrary legal choices, regardless of which markers flipped. A concrete replay additionally proves that every marker turns a line and a gray slide edge is used.
+Version 13 adds one or two useful purple redirectors. `src/flipping-generator.js` certifies a common removal order across every combination of their orientations, accounting for flips during a move. At each step, every orientation must offer a usable endpoint once earlier lines are gone. Therefore the earliest remaining line in that order can always escape after arbitrary legal choices, regardless of which markers flipped. A concrete replay additionally proves that every marker turns a line and a amber slide edge is used.
 
 `src/routing.js` traces the same route for game rules, collision feedback, hints, and animation. Route previews simulate flips without changing the board; loop detection includes marker state, and cached routes are invalidated when directions change. The seed recreates the features and geometry exactly; `solutionMoves` records endpoint choices alongside the legacy `solution` ID list.
 
-Tests cover chained redirects and gray slide edges, either-end selection across faces, collision/rollback animation, full solution replays and arbitrary endpoint orders, useful placement of every redirector, geometry and density through dimension 64, deterministic seeds, and storage restoration. Existing generator versions 1–12 retain their exact seed mappings.
+Tests cover chained redirects and amber slide edges, either-end selection across faces, collision/rollback animation, full solution replays and arbitrary endpoint orders, useful placement of every redirector, geometry and density through dimension 64, deterministic seeds, and storage restoration. Existing generator versions 1–12 retain their exact seed mappings.
 
 ## Saved progress
 
@@ -147,10 +147,10 @@ Open the production game online once and allow its service worker to install bef
 
 ## Help and recharge indicators
 
-Help pairs the game symbols with short instructions based on ASD-STE100 writing principles: one action per instruction, active voice, and consistent game terms. The guide covers two-ended arrows, blue fixed turn markers, purple reversing turn markers, gray slide edges, crashes, resets, and far-side arrows. Game terms such as arrowhead, turn marker, reset, tap, and drag refer to the controls and objects shown in the game.
+Help pairs the game symbols with short instructions based on ASD-STE100 writing principles: one action per instruction, active voice, and consistent game terms. The guide covers two-ended arrows, blue fixed turn markers, purple reversing turn markers, amber slide edges, crashes, resets, and far-side arrows. Game terms such as arrowhead, turn marker, reset, tap, and drag refer to the controls and objects shown in the game.
 
 The next empty reset icon fills from bottom to top as its three-hour recharge interval passes. Other empty reset icons stay unfilled. Hover over the reset tokens for the remaining time, or open the refill screen to see its clock. The recharge value is also available through a native progress element for assistive technology.
 
 On touch screens, twist two fingers to rotate the cube in the screen plane. This works together with pinch-to-zoom. Lifting or canceling a finger does not release an arrow or change the current zoom unexpectedly.
 
-Two-ended arrows keep solid green and yellow across the outer 45% of each end, with a short color transition in the center 10%. The same color range applies to static arrows, movement animations, and the Help symbol. Slide edges currently use gray, with the existing background fade and arrow-over-edge draw order.
+Two-ended arrows keep solid orange and blue across the outer 45% of each end, with a short color transition in the center 10%. The same color range applies to static arrows, movement animations, and the Help symbol. Slide edges use bright amber with a thin dark outline, retaining the background fade and arrow-over-edge draw order. The outline remains inside the original band extent, including at corners and caps.
