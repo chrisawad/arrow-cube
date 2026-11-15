@@ -59,8 +59,9 @@ export function setupThemeControls({ document, initial, onChange, createWheel })
   $('theme-open').addEventListener('click', open);
   $('theme-settings').addEventListener('click', open);
   $('theme-close').addEventListener('click', () => { if (hasPopover) panel.hidePopover(); else panel.close(); });
-  $('theme-defaults').addEventListener('click', () => {
-    theme = normalizeTheme(); hsv = hexToHsv(theme[selected]); paintTheme(); onChange({ ...theme });
+  $('theme-reset').addEventListener('click', () => {
+    theme = { ...theme, [selected]: DEFAULT_THEME[selected] };
+    hsv = hexToHsv(theme[selected]); paintTheme(); onChange({ ...theme });
   });
   paintTheme();
 }

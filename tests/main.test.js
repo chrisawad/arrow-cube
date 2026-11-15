@@ -652,8 +652,15 @@ test('theme opens from both controls, previews wheel and hex colors, and restore
     h.get('color-hex').value = '#nope'; h.get('color-hex').emit('change');
     assert.equal(h.get('color-hex').getAttribute('aria-invalid'), 'true');
     assert.equal(h.saves.at(-1).theme.background, '#abcdef');
-    h.get('theme-defaults').click();
+    h.get('theme-reset').click();
+    assert.deepEqual(h.saves.at(-1).theme, { ...DEFAULT_THEME, edge: '#005580' }, 'resetting background keeps the chosen edge color');
+    assert.equal(h.view.theme.edge, '#005580');
+    assert.equal(h.get('color-preview').style['--swatch'], DEFAULT_THEME.background);
+    assert.equal(boot(h.saves.at(-1)).view.options.theme.edge, '#005580', 'the other colors remain saved after reset');
+    h.get('color-part').value = 'edge'; h.get('color-part').emit('change');
+    h.get('theme-reset').click();
     assert.deepEqual(h.saves.at(-1).theme, DEFAULT_THEME);
+    assert.equal(h.get('color-hex').value, '#ffff00');
     assert.equal(h.get('color-hex').getAttribute('aria-invalid'), 'false');
     h.get('theme-close').click(); h.get('theme-open').click();
     assert.equal(popover ? h.get('theme-dialog').visible : h.get('theme-dialog').open, true);
