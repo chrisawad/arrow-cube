@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { arrowShape, arrowFragments, arrowHead, findArrowCollision, bumpTimings, sampleBumpMotion } from './arrow-motion.js';
 import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.js';
 import { orientArrow, reverseAtProgress } from './arrow-orientation.js';
-import { traceExitRoute } from './routing.js';
+import { traceExitRoute, redirectorDirection, flippedRedirectorIds } from './routing.js';
 import { yellowEdgeGeometries, YELLOW_EDGE_EXTENT } from './yellow-edges.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
@@ -20,7 +20,7 @@ for (const x of [-1.024, 1.024]) for (const y of [-1.024, 1.024]) for (const z o
 const INK = '#15191f';
 const HINT = '#5b55e7';
 const BLOCKED = '#e16457';
-const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef';
+const GREEN = '#37b487', GOLD = '#f1c643', BLUE = '#74ccef', PURPLE = '#b64bed';
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 function distanceToSegment(p, a, b) {
@@ -65,16 +65,22 @@ function paintTwoEnded(ctx, fragment, arrow, color, unit, shape, size, hintRever
   if (fragment.head) paintHead(ctx, points.at(-1), arrow.direction, colored ? GOLD : hintReverse === true ? '#a6bac6' : color, unit, shape);
 }
 
-function paintRedirector(ctx, marker, unit) {
-  const d = marker.direction, side = { x: -d.y, y: d.x }, center = { x: marker.x + 0.5, y: marker.y + 0.5 };
-  ctx.strokeStyle = BLUE; ctx.lineWidth = unit * 0.12; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const offset of [-0.19, 0.17]) {
+function paintRedirector(ctx, marker, unit, flipped) {
+  const d = redirectorDirection(marker, flipped), side = { x: -d.y, y: d.x }, center = { x: marker.x + 0.5, y: marker.y + 0.5 };
+  ctx.strokeStyle = marker.flipping ? PURPLE : BLUE;
+  ctx.lineWidth = unit * (marker.flipping ? 0.15 : 0.12); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const offset of marker.flipping ? [0.14] : [-0.19, 0.17]) {
     const tip = { x: center.x + d.x * (offset + 0.13), y: center.y + d.y * (offset + 0.13) };
     ctx.beginPath();
     ctx.moveTo((tip.x - d.x * 0.24 + side.x * 0.22) * unit, (tip.y - d.y * 0.24 + side.y * 0.22) * unit);
     ctx.lineTo(tip.x * unit, tip.y * unit);
     ctx.lineTo((tip.x - d.x * 0.24 - side.x * 0.22) * unit, (tip.y - d.y * 0.24 - side.y * 0.22) * unit);
     ctx.stroke();
+  }
+  if (marker.flipping) {
+    ctx.fillStyle = PURPLE; ctx.beginPath();
+    ctx.arc((center.x - d.x * 0.18) * unit, (center.y - d.y * 0.18) * unit, unit * 0.075, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -345,6 +351,7 @@ export class CubeView {
   setPuzzle(puzzle, removedSet = new Set(), blockedSet = new Set()) {
     this.cancelAnimations(false);
     this.puzzle = puzzle;
+    this.visibleFlips = new Set(flippedRedirectorIds(puzzle));
     // Every dimension brings the cube a little closer, up to the screen-fit
     // limit that keeps the angled starting view fully visible.
     // Dimension 2 starts at 7 units, and large cubes approach 6.4 units (~9% growth).
@@ -409,7 +416,7 @@ export class CubeView {
       if (onlyFace !== null && index !== onlyFace) return;
       const { ctx, canvas, texture } = face, unit = canvas.width / size;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const marker of this.puzzle.redirectors || []) if (marker.face === index) paintRedirector(ctx, marker, unit);
+      for (const marker of this.puzzle.redirectors || []) if (marker.face === index) paintRedirector(ctx, marker, unit, this.visibleFlips.has(marker.id));
       for (const arrow of this.arrowsByFace[index]) {
         if (this.removed.has(arrow.id) || this.animations.has(arrow.id)) continue;
         const color = this.highlighted?.id === arrow.id ? (this.highlighted.type === 'blocked' ? BLOCKED : HINT)
@@ -486,6 +493,20 @@ export class CubeView {
     for (const face of new Set(arrow.cells.map(cell => cell.face ?? arrow.face))) this.drawFaces(face);
   }
 
+  animateRedirectors(animation, distance) {
+    const events = animation.route?.flips || [];
+    let count = 0;
+    while (count < events.length && events[count].at <= distance + 1e-7) count++;
+    if (count === (animation.flipCount || 0)) return;
+    const next = new Set(animation.initialFlips), faces = new Set();
+    for (const event of events.slice(0, count)) {
+      if (event.flipped) next.add(event.id); else next.delete(event.id);
+    }
+    for (const event of events) if (next.has(event.id) !== this.visibleFlips.has(event.id)) faces.add(event.face);
+    this.visibleFlips = next; animation.flipCount = count;
+    for (const face of faces) this.drawFaces(face);
+  }
+
   removeArrow(id, { reverse = false } = {}) {
     const original = this.arrowById?.get(id);
     if (this.disposed || !original || this.removed.has(id) || (reverse && !original.bidirectional)) return Promise.resolve(false);
@@ -505,7 +526,7 @@ export class CubeView {
       : direction.y > 0 ? size - 0.5 - head.y : head.y + 0.5;
     const clearDistance = track.length + (route?.distance ?? edgeDistance) + 0.35;
     const animation = { kind: 'remove', arrow, mesh, material, shape, track, clearDistance, travel: clearDistance + size * 1.3,
-      route, reverse, reducedMotion: this.reducedMotion, start: performance.now(),
+      route, reverse, initialFlips: new Set(this.visibleFlips), reducedMotion: this.reducedMotion, start: performance.now(),
       duration: this.reducedMotion ? 150 : routed ? Math.min(1100, 260 + (track.length + route.distance) * 6) : Math.min(520, 260 + arrow.cells.length * 4), resolve, promise };
     this.animations.set(id, animation);
     this.drawArrowFaces(arrow);
@@ -532,6 +553,7 @@ export class CubeView {
     const promise = new Promise(r => { resolve = r; });
     this.animations.set(id, { kind: 'bump', arrow, mesh, material, shape, track, start: performance.now(),
       distance: collision.distance, timings: bumpTimings(collision.distance, this.reducedMotion, routed), route, reverse,
+      initialFlips: new Set(this.visibleFlips),
       reducedMotion: this.reducedMotion, lastDistance: 0, impacted: false, onImpact, resolve, promise });
     this.drawArrowFaces(arrow);
     this.schedule();
@@ -689,6 +711,10 @@ export class CubeView {
     for (const [id, animation] of this.animations) {
       if (animation.kind === 'bump') {
         const state = sampleBumpMotion(time - animation.start, animation.distance, animation.timings, animation.reducedMotion, this.blocked.has(id));
+        // Returning along the frozen route unwinds temporary flips in reverse
+        // order. Reduced motion changes them at impact and restores at completion.
+        this.animateRedirectors(animation, state.complete ? -Infinity : animation.reducedMotion
+          ? (state.impacted ? animation.distance : -Infinity) : state.distance);
         if (state.distance !== animation.lastDistance) {
           animation.mesh.geometry.dispose();
           animation.mesh.geometry = ribbonGeometry(animation.track, state.distance, animation.shape);
@@ -714,6 +740,7 @@ export class CubeView {
       }
       const t = clamp((time - animation.start) / animation.duration, 0, 1);
       const distance = animation.reducedMotion ? 0 : animation.travel * t * t;
+      this.animateRedirectors(animation, animation.reducedMotion ? (t === 1 ? Infinity : -Infinity) : distance);
       if (!animation.reducedMotion) {
         animation.mesh.geometry.dispose();
         animation.mesh.geometry = ribbonGeometry(animation.track, distance, animation.shape);

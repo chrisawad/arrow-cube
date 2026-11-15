@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadProgress, saveProgress, normalizeProgress, STORAGE_KEY } from '../src/storage.js';
 
-const valid = () => ({ generatorVersion: 12, size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto' });
+const valid = () => ({ generatorVersion: 13, flippedRedirectors: [], size: 5, seed: 123456, removed: ['0-1', 3], blocked: [], moves: 2, sound: false, bestSize: 8, motion: 'auto' });
 test('progress round trips the puzzle seed, removed paths, dimension, and settings', () => {
   const values = new Map();
   globalThis.localStorage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
@@ -51,9 +51,9 @@ test('legacy saves retain their original generator, seed, dimension, and removed
   let stored = JSON.stringify(legacy);
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   const restored = loadProgress();
-  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], motion: 'full' });
+  assert.deepEqual(restored, { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full' });
   assert.equal(saveProgress(restored), true);
-  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], motion: 'full' });
+  assert.deepEqual(JSON.parse(stored), { ...legacy, generatorVersion: 1, blocked: [], flippedRedirectors: [], motion: 'full' });
 });
 test('current generator version round trips without changing the existing storage schema or key', () => {
   let stored;
@@ -63,7 +63,7 @@ test('current generator version round trips without changing the existing storag
   };
   assert.equal(saveProgress(valid()), true);
   assert.equal(JSON.parse(stored).version, 1);
-  assert.equal(JSON.parse(stored).generatorVersion, 12);
+  assert.equal(JSON.parse(stored).generatorVersion, 13);
   assert.deepEqual(loadProgress(), { version: 1, ...valid() });
 });
 test('explicit generator 1 through 11 saves remain compatible', () => {
@@ -117,11 +117,22 @@ test('blocked path IDs persist, deduplicate, and default to empty for older save
   }
 });
 test('unknown generator versions are rejected rather than restoring arrow IDs onto a different puzzle', () => {
-  for (const generatorVersion of [0, 13, -1, 1.5, '12', null, {}]) {
+  for (const generatorVersion of [0, 14, -1, 1.5, '12', null, {}]) {
     const unknown = { version: 1, ...valid(), generatorVersion };
     globalThis.localStorage = { getItem: () => JSON.stringify(unknown) };
     assert.equal(loadProgress(), null);
     assert.equal(normalizeProgress(unknown), null);
     assert.equal(saveProgress(unknown), false);
+  }
+});
+
+test('purple marker orientations round trip, deduplicate, default for older saves, and reject invalid IDs', () => {
+  let stored;
+  globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
+  assert(saveProgress({ ...valid(), flippedRedirectors: [1, 1, 4] }));
+  assert.deepEqual(loadProgress().flippedRedirectors, [1, 4]);
+  assert.deepEqual(normalizeProgress({ ...valid(), generatorVersion: 12, flippedRedirectors: undefined }).flippedRedirectors, []);
+  for (const flippedRedirectors of [null, {}, [-1], [NaN], [''], [false], Array(33).fill(1)]) {
+    assert.equal(normalizeProgress({ ...valid(), flippedRedirectors }), null);
   }
 });

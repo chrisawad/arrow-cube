@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { generatePuzzle, canRemove, getRemovable, GENERATOR_VERSION } from '../src/engine.js';
+import { generatePuzzle, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION } from '../src/engine.js';
+import { applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors } from '../src/routing.js';
 
 // Exercise the actual entry point and DOM event handlers with the real puzzle
 // engine. Only browser rendering/audio/storage boundaries are replaced here;
@@ -94,7 +95,8 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle } = {}
   }
   let nextSeed = 8137;
   vm.runInNewContext(source, {
-    document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, GENERATOR_VERSION,
+    document, window, URL, URLSearchParams, generatePuzzle: puzzleFactory, canRemove, getRemovable, getArrowMove, GENERATOR_VERSION,
+    applyRedirectorFlips, flippedRedirectorIds, restoreRedirectors,
     CubeView: View, GameAudio: Audio, loadProgress: () => saved,
     saveProgress: progress => { saves.push(structuredClone(progress)); return true; },
     setupInstall: () => {}, matchMedia: () => ({ matches: false }),
@@ -106,7 +108,7 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle } = {}
   assert.equal(view.calls.length, 1, 'startup must initialize the board');
   return {
     view, saves, sounds, views, presets, get: id => elements.get(id), search: () => window.location.search,
-    state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())),
+    state: () => JSON.parse(JSON.stringify(window.__arrowCube.getState())), pagehide: () => window.emit('pagehide'),
     submit(size) {
       elements.get('choose-size').click();
       elements.get('size-input').value = String(size);
@@ -319,4 +321,37 @@ test('keyboard hints preserve a reverse-only escape direction', async () => {
   assert.equal(animation.type, 'remove'); assert.equal(animation.reverse, true);
   animation.resolve(true); await Promise.resolve();
   assert.deepEqual(h.state().removed, [0]);
+});
+
+const purplePuzzle = (size, seed) => ({ size, seed, gridSize: 7, generatorVersion: 13, wrapEdges: [],
+  redirectors: [{ id: 9, face: 0, x: 3, y: 3, direction: { x: 0, y: 1 }, flipping: true, flipped: false }],
+  arrows: [{ id: 0, face: 0, direction: { x: 1, y: 0 }, cells: [0, 1, 2].map(x => ({ face: 0, x, y: 3 })) }] });
+
+test('a departure atomically saves purple flips and removal, restores them, and resets on restart', async () => {
+  const h = boot(null, { puzzleFactory: purplePuzzle });
+  const playing = h.view.options.onSelect(0);
+  assert.deepEqual(h.saves.at(-1).flippedRedirectors, [9]);
+  assert.deepEqual(h.saves.at(-1).removed, [0]);
+  const restored = boot(h.saves.at(-1), { puzzleFactory: purplePuzzle });
+  assert.equal(restored.view.puzzle.redirectors[0].flipped, true);
+  restored.get('restart').click();
+  assert.deepEqual(restored.saves.at(-1).flippedRedirectors, []);
+  assert.equal(restored.view.puzzle.redirectors[0].flipped, false);
+  h.view.animations.at(-1).resolve(true); await playing;
+});
+
+test('a collision never persists its temporary purple flips, including pagehide during rollback', async () => {
+  const h = boot(null, { puzzleFactory: (size, seed) => {
+    const puzzle = purplePuzzle(size, seed);
+    puzzle.arrows.push({ id: 1, face: 0, direction: { x: 1, y: 0 }, cells: [3, 4, 5].map(x => ({ face: 0, x, y: 5 })) });
+    return puzzle;
+  } });
+  const playing = h.view.options.onSelect(0), animation = h.view.animations.at(-1);
+  assert.equal(animation.type, 'bump');
+  animation.onImpact();
+  h.pagehide();
+  assert.deepEqual(h.saves.at(-1).flippedRedirectors, []);
+  assert.equal(h.view.puzzle.redirectors[0].flipped, false);
+  animation.resolve(true); await playing;
+  assert.deepEqual(h.saves.at(-1).flippedRedirectors, []);
 });

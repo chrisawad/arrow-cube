@@ -1,13 +1,14 @@
 import { neighbor, getGridSize, getGridSizeForVersion, FACE_BASIS, directionBetween } from './cube-surface.js';
 import { orientArrow } from './arrow-orientation.js';
-import { traceExitRoute, surfaceCellKey } from './routing.js';
+import { traceExitRoute, surfaceCellKey, redirectorStateKey } from './routing.js';
 import { buildFeaturePuzzle } from './feature-generator.js';
+import { addFlippingRedirectors } from './flipping-generator.js';
 
 /** Deterministic, solvable puzzles covering the surface of a cube. */
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 64;
 // Persist this with a saved board: seed mappings are stable within a version.
-export const GENERATOR_VERSION = 12;
+export const GENERATOR_VERSION = 13;
 const DIRECTIONS = [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }];
 const indexes = new WeakMap();
 
@@ -59,7 +60,7 @@ export function generatePuzzle(size, seed = Date.now(), generatorVersion = GENER
   if (!Number.isInteger(size) || size < MIN_SIZE || size > MAX_SIZE) {
     throw new RangeError(`Cube dimensions must be an integer from ${MIN_SIZE} to ${MAX_SIZE}.`);
   }
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(generatorVersion)) throw new RangeError('Unsupported puzzle generator version.');
   if (generatorVersion >= 11) return generateSpecialPuzzle(size, seed, generatorVersion);
   if (generatorVersion >= 7) return generateExtendedPuzzle(size, seed, generatorVersion);
   if (generatorVersion >= 5) return generateRandomPuzzle(size, seed, generatorVersion);
@@ -587,7 +588,7 @@ function finishSpecialPuzzle(puzzle, certificate) {
 
 /** Feature-first carving keeps all routes provable without repeated repair passes. */
 function generateSpecialPuzzle(size, seed, generatorVersion) {
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < (generatorVersion >= 13 ? 16 : 6); attempt++) {
     let puzzle = buildFeaturePuzzle(size, seed, seededRandom, attempt);
     if (generatorVersion >= 12) {
       const forward = certifySpecialPuzzle(puzzle);
@@ -609,7 +610,11 @@ function generateSpecialPuzzle(size, seed, generatorVersion) {
     const certificate = certifySpecialPuzzle(puzzle);
     if (!certificate) throw new Error('Feature carving produced an uncertified puzzle');
     const result = finishSpecialPuzzle(puzzle, certificate);
-    if (certificate.edges.size && certificate.markers.size && doubles.size) return result;
+    if (certificate.edges.size && certificate.markers.size && doubles.size) {
+      if (generatorVersion < 13) return result;
+      const flipping = addFlippingRedirectors(result, getArrowMove, seededRandom(`${seed}:flipping:${attempt}`));
+      if (flipping) return flipping;
+    }
   }
   throw new Error('Could not create a useful mix of surface mechanics for this seed');
 }
@@ -672,6 +677,8 @@ export function getRemovable(puzzle, removed = new Set()) {
 /** Cached routes and swept self-occupancy for both endpoints of a line. */
 function routeInfo(puzzle, arrow, reverse) {
   const index = indexPuzzle(puzzle), key = `${arrow.id}:${reverse ? 1 : 0}`;
+  const state = redirectorStateKey(puzzle);
+  if (index.redirectorState !== state) { index.routes.clear(); index.redirectorState = state; }
   if (index.routes.has(key)) return index.routes.get(key);
   const size = getGridSize(puzzle), moving = orientArrow(arrow, size, reverse);
   const route = traceExitRoute(puzzle, arrow, reverse), length = moving.cells.length - 1;

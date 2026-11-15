@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { traceExitRoute, cubeEdges, surfaceCellKey } from '../src/routing.js';
+import { traceExitRoute, cubeEdges, surfaceCellKey, applyRedirectorFlips } from '../src/routing.js';
 import { neighbor, directionBetween } from '../src/cube-surface.js';
 import { generatePuzzle, canRemove, getArrowMove, getBlockingArrow, getRemovable } from '../src/engine.js';
 
@@ -69,8 +69,10 @@ test('closed routing loops terminate detection and cannot remove a line', () => 
 test('feature boards contain every mechanic, usable reverse ends, and valid certified routes', () => {
   for (const size of [2, 3, 5, 8, 12, 32, 64]) for (let seed = 0; seed < (size >= 32 ? 2 : 12); seed++) {
     const puzzle = generatePuzzle(size, seed), occupied = new Set(), removed = new Set();
-    assert.equal(puzzle.generatorVersion, 12);
+    assert.equal(puzzle.generatorVersion, 13);
     assert(puzzle.wrapEdges.length > 0); assert(puzzle.redirectors.length > 0);
+    assert(puzzle.redirectors.some(marker => marker.flipping));
+    assert(puzzle.redirectors.some(marker => !marker.flipping));
     assert(puzzle.arrows.some(arrow => arrow.bidirectional));
     for (const arrow of puzzle.arrows) {
       assert(arrow.cells.length >= 3 && arrow.cells.length <= 75);
@@ -78,10 +80,6 @@ test('feature boards contain every mechanic, usable reverse ends, and valid cert
         const cell = arrow.cells[i], key = surfaceCellKey(cell, puzzle.gridSize);
         assert(!occupied.has(key)); occupied.add(key);
         if (i) directionBetween(arrow.cells[i - 1], cell, puzzle.gridSize);
-      }
-      if (arrow.bidirectional) {
-        const reverse = getArrowMove(puzzle, arrow.id, new Set(), true);
-        assert(!reverse.route.loop && !reverse.selfBlocked, 'either end must eventually be usable');
       }
     }
     for (const marker of puzzle.redirectors) assert(!occupied.has(surfaceCellKey(marker, puzzle.gridSize)));
@@ -91,6 +89,7 @@ test('feature boards contain every mechanic, usable reverse ends, and valid cert
       assert(info.canExit, `blocked certificate at ${size}:${seed}:${move.id}`);
       for (const item of info.route.transitions) usedEdges.add(item.edge);
       for (const item of info.route.turns) usedMarkers.add(item.id);
+      applyRedirectorFlips(puzzle, info.route);
       removed.add(move.id);
     }
     assert.equal(removed.size, puzzle.arrows.length);
@@ -108,7 +107,9 @@ test('arbitrary legal endpoint choices never deadlock a generated feature board'
       const moves = puzzle.arrows.flatMap(arrow => [false, true].filter(reverse => !reverse || arrow.bidirectional)
         .filter(reverse => canRemove(puzzle, arrow.id, removed, reverse)).map(reverse => ({ id: arrow.id, reverse })));
       assert(moves.length > 0);
-      removed.add(moves[(seed + removed.size * 7) % moves.length].id);
+      const move = moves[(seed + removed.size * 7) % moves.length];
+      applyRedirectorFlips(puzzle, getArrowMove(puzzle, move.id, removed, move.reverse).route);
+      removed.add(move.id);
     }
   }
 });

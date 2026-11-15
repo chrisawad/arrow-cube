@@ -18,7 +18,7 @@ function fixture(puzzle = chain) {
   const view = Object.create(CubeView.prototype), strokes = [], fills = [];
   const faces = Array.from({ length: 6 }, () => {
     const canvas = { width: 768, height: 768 }, texture = new THREE.CanvasTexture(canvas);
-    const ctx = { clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+    const ctx = { clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, arc() {},
       createLinearGradient() { return { addColorStop() {} }; },
       stroke() { strokes.push(this.strokeStyle); }, fill() { fills.push(this.fillStyle); } };
     return { canvas, texture, ctx, plane: new THREE.Mesh(), material: { map: texture }, ghostMaterial: { uniforms: { arrows: { value: texture } } } };
@@ -138,4 +138,58 @@ test('changing boards disposes old yellow edge meshes', () => {
   view.setPuzzle({ size: 4, arrows: [source] });
   assert.equal(disposed, 2); assert.equal(view.featureEdges, null);
   assert(!view.cube.children.includes(old));
+});
+
+const purpleFixture = (blocked = false) => ({ size: 7, gridSize: 7, generatorVersion: 13,
+  redirectors: [{ id: 9, face: 0, x: 3, y: 3, direction: down, flipping: true, flipped: false }],
+  arrows: [{ ...source, cells: [0, 1, 2].map(x => ({ face: 0, x, y: 3 })) },
+    ...(blocked ? [{ id: 1, face: 0, direction: right, cells: [3, 4, 5].map(x => ({ face: 0, x, y: 5 })) }] : [])] });
+
+test('purple marker flips exactly as the leading tip passes, once even across skipped frames', async () => {
+  const { view, strokes, fills } = fixture(purpleFixture());
+  assert(strokes.includes('#b64bed') && fills.includes('#b64bed'), 'purple chevron and dot are painted');
+  const done = view.removeArrow(0), animation = view.animations.get(0); animation.start = 1000;
+  const frameAt = distance => view.frame(1000 + Math.sqrt(distance / animation.travel) * animation.duration);
+  frameAt(0.9); assert(!view.visibleFlips.has(9));
+  frameAt(1.1); assert(view.visibleFlips.has(9));
+  frameAt(2.1); assert(view.visibleFlips.has(9));
+  view.frame(1000 + animation.duration + 1);
+  assert(await done); assert(view.visibleFlips.has(9));
+});
+
+test('collision rollback restores purple direction and cannot flip a marker beyond the impact', async () => {
+  for (const reduced of [false, true]) {
+    const puzzle = purpleFixture(true);
+    puzzle.redirectors.push({ id: 10, face: 0, x: 3, y: 6, direction: right, flipping: true });
+    const { view } = fixture(puzzle); view.reducedMotion = reduced;
+    let ticks = 0;
+    const done = view.bumpArrow(0, { onImpact: () => ticks++ }), animation = view.animations.get(0);
+    animation.start = 1000;
+    view.frame(1000 + animation.timings.outbound);
+    assert(view.visibleFlips.has(9)); assert(!view.visibleFlips.has(10));
+    assert.equal(ticks, 1);
+    view.frame(1000 + animation.timings.outbound + animation.timings.hold + animation.timings.rollback);
+    assert(await done); assert(!view.visibleFlips.has(9)); assert(!view.visibleFlips.has(10));
+    assert.equal(ticks, 1); assert(view.blocked.has(0));
+    assert.equal(puzzle.redirectors[0].flipped, false, 'bump previews cannot change saved board state');
+  }
+});
+
+test('reduced motion and a backgrounded tab still apply all departure flips', async () => {
+  for (const reduced of [false, true]) {
+    const { view } = fixture(purpleFixture()); view.reducedMotion = reduced;
+    const done = view.removeArrow(0), animation = view.animations.get(0);
+    assert(!view.visibleFlips.has(9));
+    view.frame(animation.start + animation.duration + 5000);
+    assert(await done); assert(view.visibleFlips.has(9));
+  }
+});
+
+test('switching boards during a purple animation clears its transient direction', async () => {
+  const { view } = fixture(purpleFixture(true));
+  const done = view.bumpArrow(0), animation = view.animations.get(0);
+  view.frame(animation.start + animation.timings.outbound);
+  assert(view.visibleFlips.has(9));
+  view.setPuzzle(purpleFixture());
+  assert.equal(await done, false); assert.equal(view.visibleFlips.size, 0);
 });

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { GENERATOR_VERSION, generatePuzzle, canRemove, getRemovable, getBlockingArrow, seededRandom } from '../src/engine.js';
+import { GENERATOR_VERSION, generatePuzzle, canRemove, getRemovable, getBlockingArrow, getArrowMove, seededRandom } from '../src/engine.js';
+import { applyRedirectorFlips } from '../src/routing.js';
 import { FACE_BASIS, getGridSize, neighbor, directionBetween, cellToWorld, seamPoint } from '../src/cube-surface.js';
 
 function validateGeometry(puzzle) {
@@ -64,6 +65,16 @@ test('version 11 retains saved features, arrows, and solutions exactly', () => {
   }
 });
 
+test('version 12 saved boards retain their exact features, arrows, and solution before purple markers', () => {
+  for (const [size, seed, hash] of [
+    [3, 1234, '2e979e9a056b9fe3dabfa4fbb142e7ff97a81aff4f36ecf0a6551b5f68a08eea'],
+    [8, 'saved-game-42', 'd4b284da69c1797c7993098af2a0d9265db11f85b90d5a7f03240b2c042ba63e'],
+    [12, 7, '72418bebc690c48581fcdd2d2731e529a36c436e17a9cf81098eddb851a797b5'],
+  ]) {
+    assert.equal(createHash('sha256').update(JSON.stringify(generatePuzzle(size, seed, 12))).digest('hex'), hash);
+  }
+});
+
 test('all generated geometry and certified solutions are valid across levels and seeds', () => {
   let minimumCoverage = 1;
   for (const size of [2, 3, 4, 5, 7, 10, 16, 24, 32, 40, 64]) {
@@ -85,6 +96,7 @@ test('arbitrary legal play orders never produce a deadlock', () => {
       const legal = getRemovable(puzzle, removed);
       assert(legal.length > 0, `deadlock after ${removed.size} moves`);
       const choice = legal[Math.floor(random() * legal.length)];
+      applyRedirectorFlips(puzzle, getArrowMove(puzzle, choice.id, removed, Boolean(choice.reverse)).route);
       removed.add(choice.id);
     }
   }

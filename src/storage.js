@@ -15,7 +15,7 @@ export function normalizeProgress(value) {
   // Generator identity is separate from storage schema: old seeds must recreate
   // their original board so saved removed IDs still refer to the same arrows.
   const generatorVersion = value.generatorVersion === undefined ? 1 : value.generatorVersion;
-  if (!Number.isInteger(generatorVersion) || generatorVersion < 1 || generatorVersion > 12) return null;
+  if (!Number.isInteger(generatorVersion) || generatorVersion < 1 || generatorVersion > 13) return null;
   if (!Number.isInteger(value.size) || value.size < 2 || value.size > 64) return null;
   const seedValid = (Number.isSafeInteger(value.seed) && value.seed >= 0 && value.seed <= 0xffffffff) ||
     (typeof value.seed === 'string' && value.seed.length > 0 && value.seed.length <= 128);
@@ -26,12 +26,15 @@ export function normalizeProgress(value) {
   const blockedValue = value.blocked === undefined ? [] : value.blocked;
   if (!Array.isArray(blockedValue) || blockedValue.length > 6 * gridSize ** 2 || !blockedValue.every(validId)) return null;
   const blocked = [...new Set(blockedValue)];
+  const flippedValue = value.flippedRedirectors === undefined ? [] : value.flippedRedirectors;
+  if (!Array.isArray(flippedValue) || flippedValue.length > 32 || !flippedValue.every(validId)) return null;
+  const flippedRedirectors = [...new Set(flippedValue)];
   if (!Number.isSafeInteger(value.moves) || value.moves < 0 || value.moves > 100000000) return null;
   const bestSize = Number.isInteger(value.bestSize) && value.bestSize >= value.size && value.bestSize <= 64
     ? value.bestSize : value.size;
   const motion = ['auto', 'full', 'reduced'].includes(value.motion) ? value.motion : 'full';
   return { version: VERSION, generatorVersion, size: value.size, seed: value.seed, removed, blocked,
-    moves: value.moves, sound: value.sound !== false, bestSize, motion };
+    flippedRedirectors, moves: value.moves, sound: value.sound !== false, bestSize, motion };
 }
 
 export function loadProgress() {

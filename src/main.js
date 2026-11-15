@@ -1,4 +1,5 @@
-import {generatePuzzle,canRemove,getRemovable,GENERATOR_VERSION} from './engine.js';
+import {generatePuzzle,canRemove,getRemovable,getArrowMove,GENERATOR_VERSION} from './engine.js';
+import {applyRedirectorFlips,flippedRedirectorIds,restoreRedirectors} from './routing.js';
 import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';
 import {GameAudio} from './audio.js';
@@ -14,12 +15,13 @@ const audio = new GameAudio(soundEnabled);
 let view;
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
-function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],moves,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
+function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,sound:soundEnabled,bestSize,motion:motionMode});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
 function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=String(puzzle.size).padStart(2,'0');$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('moves').textContent=moves;$('progress-percent').textContent=`${percent}%`;$('progress-fill').style.width=`${percent}%`;$('hint').lastChild.textContent=removed.size===count?' Next level':' Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').setAttribute('aria-label',soundEnabled?'Turn sound off':'Turn sound on');$('sound').title=soundEnabled?'Sound on':'Sound off';$('sound').textContent=soundEnabled?'♫':'♪';persist();}
 function start(size,boardSeed=seed(),restore=null){
   generation++;busy=false;hintId=null;hintReverse=false;
   clearTimeout(toastTimer);$('toast').classList.remove('visible');
   puzzle=generatePuzzle(size,boardSeed,restore?.generatorVersion??GENERATOR_VERSION);
+  restoreRedirectors(puzzle,restore?.flippedRedirectors);
   const validIds=new Set(puzzle.arrows.map(a=>a.id));
   removed=new Set((restore?.removed||[]).filter(id=>validIds.has(id)));
   blocked=new Set((restore?.blocked||[]).filter(id=>validIds.has(id)&&!removed.has(id)));
@@ -54,11 +56,16 @@ async function selectArrow(id,reverse=false){
       return;
     }
     audio.swoosh();
+    // Freeze the visual route before committing the move. Save removal and all
+    // flips together, so a refresh during its animation restores a coherent board.
+    const route=getArrowMove(puzzle,id,removed,reverse).route;
+    const departure=view.removeArrow(id,{reverse});
+    applyRedirectorFlips(puzzle,route);
     moves++;
     removed.add(id);
     blocked.delete(id);
     update();
-    await view.removeArrow(id,{reverse});
+    await departure;
     if(turn===generation&&removed.size===puzzle.arrows.length){audio.win();showWin();}
   }finally{
     if(turn===generation)busy=false;
