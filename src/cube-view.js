@@ -4,7 +4,7 @@ import { arrowShape, arrowFragments, arrowHead, findArrowCollision, bumpTimings,
 import { FACE_BASIS, getGridSize, cellToWorld, seamPoint } from './cube-surface.js';
 import { orientArrow, reverseAtProgress } from './arrow-orientation.js';
 import { traceExitRoute } from './routing.js';
-import { yellowEdgeGeometries } from './yellow-edges.js';
+import { yellowEdgeGeometries, YELLOW_EDGE_EXTENT } from './yellow-edges.js';
 
 // Face order: front, right, back, left, top, bottom. Every face uses a
 // top-left grid origin; the plane UV conversion below shares that convention.
@@ -377,7 +377,7 @@ export class CubeView {
       const material = new THREE.MeshBasicMaterial({ color: '#ffff00', transparent: true, opacity: 1, depthWrite: false });
       const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
-      const center = normalA.clone().add(normalB).multiplyScalar(1.028), eye = new THREE.Vector3();
+      const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {
         // An edge belongs to both faces: keep it bright if either face is
         // visible. Fade gently as rotation takes both faces behind the cube.

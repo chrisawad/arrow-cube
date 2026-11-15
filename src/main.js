@@ -1,4 +1,3 @@
-import './style.css';
 import {generatePuzzle,canRemove,getRemovable,GENERATOR_VERSION} from './engine.js';
 import {CubeView} from './cube-view.js';
 import {loadProgress,saveProgress} from './storage.js';

@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACE_BASIS } from './cube-surface.js';
 
-const EXTENT = 1.028;
 const WIDTH = 0.0425; // Slightly slimmer while retaining a bold, readable band.
+// The whole band stays beneath the 1.021 arrow planes, including its round
+// caps. A raised tube left a yellow lip beyond the lines in face-on views.
+export const YELLOW_EDGE_EXTENT = 1.020 - WIDTH;
+const EXTENT = YELLOW_EDGE_EXTENT;
 const CORNER = 0.10; // Keep the wider band's inner corner smooth and shallow.
 
 /** Smooth connected yellow corners and cap isolated ends, in cube coordinates. */

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { CubeView, surfaceTrack, sampleSurfaceTrack } from '../src/cube-view.js';
-import { traceExitRoute } from '../src/routing.js';
+import { traceExitRoute, cubeEdges } from '../src/routing.js';
+import { yellowEdgeGeometries } from '../src/yellow-edges.js';
 import { cellToWorld } from '../src/cube-surface.js';
 import { arrowFragments, findArrowCollision } from '../src/arrow-motion.js';
 
@@ -29,6 +30,21 @@ function fixture(puzzle = chain) {
 }
 
 const close = (actual, expected) => assert(Math.abs(actual - expected) < 1e-6, `${actual} != ${expected}`);
+
+test('yellow bands and rounded caps never protrude beyond the arrow planes in face-on views', () => {
+  // Exercise isolated caps, joined corners, and three-way junctions on all
+  // physical edges; render order alone cannot fix a protruding yellow lip.
+  const edges = cubeEdges();
+  for (const selection of [...edges.map(edge => [edge]), [[0, 1], [0, 4]], edges]) {
+    for (const geometry of yellowEdgeGeometries(selection)) {
+      const positions = geometry.attributes.position.array;
+      assert([...positions].every(Number.isFinite));
+      for (const coordinate of positions) assert(Math.abs(coordinate) < 1.021,
+        'yellow geometry must stay below the static arrow plane, even at a cap or join');
+      geometry.dispose();
+    }
+  }
+});
 
 test('the movement track turns on both blue markers and follows both physical creases', () => {
   const route = traceExitRoute(chain, source), track = surfaceTrack(source, chain, route);

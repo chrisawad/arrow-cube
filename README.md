@@ -2,6 +2,8 @@
 
 A browser-local 3D arrow puzzle for desktop and touch screens. Rotate the cube, find a clear exit, and send each arrow flying off its face. Clearing the board advances to a new puzzle with a larger grid. No account or database is required.
 
+The cube canvas fills the viewport, with progress and controls floating above it. Mobile controls respect safe-area insets and changing browser-bar heights. The stylesheet loads from the HTML head so the initial page is styled before the game JavaScript starts.
+
 ## Run
 
 Use a current Node.js LTS release and pnpm.
