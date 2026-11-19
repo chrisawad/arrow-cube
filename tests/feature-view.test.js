@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { CubeView, surfaceTrack, sampleSurfaceTrack } from '../src/cube-view.js';
 import { traceExitRoute, cubeEdges } from '../src/routing.js';
-import { yellowEdgeGeometries } from '../src/yellow-edges.js';
-import { cellToWorld } from '../src/cube-surface.js';
+import { yellowEdgeGeometries, YELLOW_EDGE_EXTENT } from '../src/yellow-edges.js';
+import { cellToWorld, FACE_BASIS } from '../src/cube-surface.js';
 import { arrowFragments, findArrowCollision } from '../src/arrow-motion.js';
 import { DEFAULT_THEME } from '../src/theme.js';
 
@@ -78,8 +78,49 @@ test('facing slide bands block far-side arrows while faded bands do not write op
   }
   view.cube.rotation.set(0, 0, 0);
   renderFrom(new THREE.Vector3(-7, 0, -7));
-  assert.equal(mesh.material.opacity, .15);
+  assert.equal(mesh.material.opacity, .22);
   assert.equal(mesh.material.depthWrite, false, 'far-side bands must remain see-through after rotation');
+});
+
+test('slide bands fade before reaching the silhouette and stay faint behind it, including after rotation', () => {
+  const edges = cubeEdges(), { view } = fixture({ ...chain, wrapEdges: edges });
+  const camera = new THREE.PerspectiveCamera();
+  const frontColor = new THREE.Color(DEFAULT_THEME.edge);
+  const backColor = new THREE.Color(DEFAULT_THEME.background).lerp(frontColor, .55);
+  for (const rotation of [[0, 0, 0], [.4, -.55, -.025], [-.8, 1.2, .7]]) {
+    view.cube.rotation.set(...rotation);
+    for (const [index, [a, b]] of edges.entries()) {
+      const mesh = view.featureEdges.children[index];
+      const normalA = new THREE.Vector3(...FACE_BASIS[a].normal);
+      const normalB = new THREE.Vector3(...FACE_BASIS[b].normal);
+      const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT);
+      const alongEdge = new THREE.Vector3().crossVectors(normalA, normalB), opacities = [];
+      // Sweep across either adjacent face. The entire fade must happen on
+      // the front side, and already be complete slightly before the silhouette.
+      for (const [facingA, facingB, stage] of [
+        [-.2, -.2, 'back'], [-.00001, -.00001, 'back'], [.01, -.2, 'back'],
+        [.04, -.2, 'fade'], [.08, -.2, 'fade'], [.12, -.2, 'fade'], [.15, -.2, 'front'],
+        [-.2, .15, 'front'], [-.2, .08, 'fade'], [-.2, .01, 'back'],
+        [-.00001, -.00001, 'back'],
+      ]) {
+        mesh.updateWorldMatrix(true, false);
+        const eye = alongEdge.clone().multiplyScalar(Math.sqrt(1 - facingA ** 2 - facingB ** 2))
+          .addScaledVector(normalA, facingA).addScaledVector(normalB, facingB).multiplyScalar(7).add(center);
+        camera.position.copy(mesh.localToWorld(eye)); camera.updateMatrixWorld();
+        mesh.onBeforeRender(null, null, camera);
+        const { opacity, depthWrite, color } = mesh.material;
+        opacities.push(opacity);
+        if (stage === 'fade') assert(opacity > .22 && opacity < 1, `edge ${a}/${b} must fade while still facing the camera`);
+        else {
+          assert.equal(opacity, stage === 'front' ? 1 : .22);
+          assert(color.equals(stage === 'front' ? frontColor : backColor));
+        }
+        assert.equal(depthWrite, stage === 'front', 'only solid front bands can occlude moving arrows');
+      }
+      assert(opacities[3] < opacities[4] && opacities[4] < opacities[5], 'the front-side fade must be gradual');
+      close(opacities[4], opacities[8]);
+    }
+  }
 });
 
 test('the movement track turns on both blue markers and follows both physical creases', () => {

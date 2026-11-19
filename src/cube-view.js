@@ -429,13 +429,13 @@ export class CubeView {
       const [a, b] = edges[index], normalA = faceNormal(a), normalB = faceNormal(b);
       const center = normalA.clone().add(normalB).multiplyScalar(YELLOW_EDGE_EXTENT), eye = new THREE.Vector3();
       mesh.onBeforeRender = (_renderer, _scene, camera) => {
-        // An edge belongs to both faces. Make it solid as soon as either face
-        // turns toward the camera; keep the far-side band faint and lighter.
+        // Fade while the edge is still in front (roughly 8 to 1 degrees before
+        // the silhouette), so it is already faint when both faces turn away.
         camera.getWorldPosition(eye);
         mesh.worldToLocal(eye).sub(center).normalize();
         const facing = Math.max(eye.dot(normalA), eye.dot(normalB));
-        const visible = THREE.MathUtils.smoothstep(facing, -0.12, 0);
-        material.opacity = THREE.MathUtils.lerp(0.15, 1, visible);
+        const visible = THREE.MathUtils.smoothstep(facing, 0.02, 0.14);
+        material.opacity = THREE.MathUtils.lerp(0.22, 1, visible);
         // Only opaque facing bands occlude geometry behind them. Arrow planes
         // and moving ribbons sit outside the inset band and stay visible in front.
         material.depthWrite = visible === 1;
