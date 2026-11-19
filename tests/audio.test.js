@@ -58,7 +58,7 @@ test('the bundled win recording loads on interaction, stays cached, and speaks b
     fetches++; assert.equal(url, './audio/you-win.wav');
     return { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
   });
-  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav' });
+  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav', winVoiceEnabled: true });
   assert.equal(fetches, 0, 'initializing the game does not delay startup with a media request');
   audio.prepare(); await audio.voiceLoading;
   audio.prepare(); assert.equal(fetches, 1);
@@ -75,7 +75,7 @@ test('leaving the win screen or muting cannot trigger late speech when decoding 
   let decoded;
   c.decodeAudioData = () => new Promise(resolve => { decoded = resolve; });
   t.mock.method(globalThis, 'fetch', async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) }));
-  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav' });
+  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav', winVoiceEnabled: true });
   audio.win(); const loading = audio.voiceLoading;
   await new Promise(resolve => setImmediate(resolve));
   audio.stopWin(); decoded({ duration: 1 }); await loading;
@@ -91,7 +91,7 @@ test('a missing recording falls back to the fanfare, and a muted game makes no m
   t.mock.method(console, 'warn', () => {});
   let fetches = 0;
   t.mock.method(globalThis, 'fetch', async () => { fetches++; return { ok: false }; });
-  const audio = new GameAudio(false, { winVoiceURL: './audio/you-win.wav' });
+  const audio = new GameAudio(false, { winVoiceURL: './audio/you-win.wav', winVoiceEnabled: true });
   audio.prepare(); audio.win(); assert.equal(fetches, 0);
   audio.setEnabled(true); audio.win(); await audio.voiceLoading;
   assert.equal(c.sources.length, 0); assert.equal(audio.horns.size, 8);
@@ -105,7 +105,7 @@ test('a stalled voice request times out so a win still gets its fanfare', async 
   t.mock.method(globalThis, 'fetch', (_url, { signal }) => new Promise((_resolve, reject) => {
     signal.addEventListener('abort', () => reject(new Error('Timed out')), { once: true });
   }));
-  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav' });
+  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav', winVoiceEnabled: true });
   audio.win(); const loading = audio.voiceLoading;
   t.mock.timers.tick(5000); await loading;
   assert.equal(c.sources.length, 0);
@@ -125,4 +125,41 @@ test('mute, another win, and disposal cancel scheduled trumpet notes without lea
   const created = c.nodes.length; audio.win(); assert.equal(c.nodes.length, created, 'muted wins create no notes');
   audio.setEnabled(true); audio.win(); audio.dispose();
   assert.equal(audio.horns.size, 0); assert(c.closed);
+});
+
+test('win speech is off by default without loading or delaying the trumpet', t => {
+  const c = context(); useContext(t, c);
+  t.mock.method(globalThis, 'fetch', () => assert.fail('disabled speech must not be fetched'));
+  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav' });
+  audio.prepare(); audio.win();
+  assert.equal(c.sources.length, 0); assert.equal(audio.horns.size, 8);
+  assert.equal([...audio.horns][0].oscillator.started, 10);
+  audio.voiceBuffer = { duration: 1.1 }; audio.win();
+  assert.equal(c.sources.length, 0, 'cached speech remains muted too');
+  audio.dispose();
+});
+
+test('disabling speech stops only the spoken voice and preserves the trumpet', t => {
+  const c = context(); useContext(t, c);
+  const audio = new GameAudio(true, { winVoiceEnabled: true });
+  audio.voiceBuffer = { duration: 1.1 }; audio.win();
+  assert.equal(c.sources.length, 1); assert.equal(audio.horns.size, 8);
+  audio.setWinVoiceEnabled(false);
+  assert.equal(c.sources[0].stops.at(-1), 0); assert(c.sources[0].disconnected);
+  assert.equal(audio.voicePlayback, null); assert.equal(audio.horns.size, 8);
+  audio.win(); assert.equal(c.sources.length, 1); assert.equal(audio.horns.size, 8);
+  audio.dispose();
+});
+
+test('turning speech off during decoding prevents late speech while retaining the fanfare', async t => {
+  const c = context(); useContext(t, c);
+  let decoded;
+  c.decodeAudioData = () => new Promise(resolve => { decoded = resolve; });
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(4) }));
+  const audio = new GameAudio(true, { winVoiceURL: './audio/you-win.wav', winVoiceEnabled: true });
+  audio.win(); const loading = audio.voiceLoading;
+  await new Promise(resolve => setImmediate(resolve));
+  audio.setWinVoiceEnabled(false); decoded({ duration: 1 }); await loading;
+  assert.equal(c.sources.length, 0); assert.equal(audio.horns.size, 8);
+  audio.dispose();
 });

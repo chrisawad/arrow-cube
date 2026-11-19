@@ -36,7 +36,7 @@ export function normalizeProgress(value) {
     ? value.bestSize : value.size;
   const motion = ['auto', 'full', 'reduced'].includes(value.motion) ? value.motion : 'full';
   return { version: VERSION, generatorVersion, size: value.size, seed: value.seed, removed, blocked,
-    flippedRedirectors, moves: value.moves, sound: value.sound !== false, bestSize, motion,
+    flippedRedirectors, moves: value.moves, sound: value.sound !== false, winVoice: value.winVoice === true, bestSize, motion,
     crashes: normalizeCrashes(value.crashes), resets: restoreResets(value), theme: normalizeTheme(value.theme), themeVersion: THEME_VERSION };
 }
 

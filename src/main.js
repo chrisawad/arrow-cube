@@ -19,15 +19,16 @@ const saved = loadProgress();
 let theme = normalizeTheme(saved?.theme);
 let resets = restoreResets(saved,Date.now()), crashes = 0;
 let bestSize = saved?.bestSize || 5, soundEnabled = saved?.sound ?? true;
+let winVoiceEnabled = saved?.winVoice === true;
 const requestedMotion = new URLSearchParams(window.location.search).get('motion');
 let motionMode = ['auto', 'full', 'reduced'].includes(requestedMotion) ? requestedMotion : saved?.motion || 'full';
-const audio = new GameAudio(soundEnabled,{winVoiceURL});
+const audio = new GameAudio(soundEnabled,{winVoiceURL,winVoiceEnabled});
 let view;
 const winCelebration = createWinCelebration($('win-confetti'));
 $('win-dialog').addEventListener('close',()=>{winCelebration.stop();audio.stopWin();});
 function notify(message){ $('toast').textContent=message; $('toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),3500); }
 function seed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
-function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,bestSize,motion:motionMode,theme});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
+function persist(){const ok=saveProgress({size:puzzle.size,seed:puzzle.seed,generatorVersion:puzzle.generatorVersion,removed:[...removed],blocked:[...blocked],flippedRedirectors:flippedRedirectorIds(puzzle),moves,crashes,resets,sound:soundEnabled,winVoice:winVoiceEnabled,bestSize,motion:motionMode,theme});$('save-status').lastChild.textContent=ok?' Progress saved':' Saving unavailable';}
 function paintResources(now){
   const hearts=Math.max(0,MAX_HEARTS-crashes);
   const recharge=resetRechargeFraction(resets,now);
@@ -72,7 +73,7 @@ function showLoss(){
   refreshResources();
   if(!$('loss-dialog').open)$('loss-dialog').showModal();
 }
-function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=puzzle.size;$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('progress-percent').textContent=`${percent}%`;$('completion').setAttribute('aria-valuenow',String(percent));$('progress-fill').style.width=`${percent}%`;$('hint-label').textContent=removed.size===count?'Next level':'Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').textContent=soundEnabled?'On':'Off';refreshResources(false);persist();}
+function update(){const count=puzzle.arrows.length;const percent=Math.round(removed.size/count*100);$('level').textContent=puzzle.size;$('dimension').textContent=`${puzzle.size} × ${puzzle.size}`;$('remaining').textContent=count-removed.size;$('progress-percent').textContent=`${percent}%`;$('completion').setAttribute('aria-valuenow',String(percent));$('progress-fill').style.width=`${percent}%`;$('hint-label').textContent=removed.size===count?'Next level':'Hint';$('sound').setAttribute('aria-pressed',String(soundEnabled));$('sound').textContent=soundEnabled?'On':'Off';$('win-voice').setAttribute('aria-pressed',String(winVoiceEnabled));$('win-voice').textContent=winVoiceEnabled?'On':'Off';refreshResources(false);persist();}
 function start(size,boardSeed=seed(),restore=null){
   winCelebration.stop();audio.stopWin();
   if($('win-dialog').open)$('win-dialog').close();
@@ -174,6 +175,7 @@ $('use-reset').addEventListener('click',()=>{
 $('reset-tokens').addEventListener('click',openRefill);
 $('loss-close').addEventListener('click',()=>$('loss-dialog').close());
 $('sound').addEventListener('click',()=>{soundEnabled=!soundEnabled;audio.setEnabled(soundEnabled);update();if(soundEnabled)audio.swoosh();});
+$('win-voice').addEventListener('click',()=>{winVoiceEnabled=!winVoiceEnabled;audio.setWinVoiceEnabled(winVoiceEnabled);if(winVoiceEnabled)audio.prepare();update();});
 $('choose-size').addEventListener('click',()=>{if(crashes>=MAX_HEARTS){showLoss();return;}$('settings-dialog').close();$('size-input').value=puzzle.size;clearSizeError();syncChoice();$('difficulty-dialog').showModal();});
 $('help').addEventListener('click',()=>$('help-dialog').showModal());
 $('settings').addEventListener('click',()=>$('settings-dialog').showModal());

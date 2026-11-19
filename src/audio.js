@@ -1,12 +1,13 @@
 /** Local sound effects, with an optional bundled recording for the win voice. */
 export class GameAudio {
-  constructor(enabled = true, { winVoiceURL = null } = {}) {
+  constructor(enabled = true, { winVoiceURL = null, winVoiceEnabled = false } = {}) {
     this.enabled = enabled; this.context = null; this.noise = null; this.tick = null; this.horns = new Set();
-    this.winVoiceURL = winVoiceURL; this.voiceBuffer = null; this.voiceLoading = null; this.voicePlayback = null; this.winSequence = 0;
+    this.winVoiceURL = winVoiceURL; this.winVoiceEnabled = winVoiceEnabled === true; this.voiceBuffer = null; this.voiceLoading = null; this.voicePlayback = null; this.winSequence = 0;
   }
   setEnabled(enabled) { this.enabled = Boolean(enabled); if (!this.enabled) this.stopWin(); }
+  setWinVoiceEnabled(enabled) { this.winVoiceEnabled = Boolean(enabled); if (!this.winVoiceEnabled) this._stopVoice(); }
   // Unlock audio during the click, without playing a sound before impact.
-  prepare() { const context = this._context(); if (context) this._loadVoice(context); }
+  prepare() { const context = this._context(); if (context && this.winVoiceEnabled) this._loadVoice(context); }
   _loadVoice(context) {
     if (!this.winVoiceURL) return Promise.resolve(null);
     if (this.voiceBuffer) return Promise.resolve(this.voiceBuffer);
@@ -128,10 +129,11 @@ export class GameAudio {
     const sequence = this.winSequence;
     const play = buffer => {
       if (!this.enabled || sequence !== this.winSequence || c !== this.context) return;
-      const delay = buffer ? this._playVoice(c, buffer) : 0;
+      const delay = this.winVoiceEnabled && buffer ? this._playVoice(c, buffer) : 0;
       this._fanfare(c, delay);
     };
-    if (this.voiceBuffer) play(this.voiceBuffer);
+    if (!this.winVoiceEnabled) play(null);
+    else if (this.voiceBuffer) play(this.voiceBuffer);
     else if (this.winVoiceURL) this._loadVoice(c).then(play);
     else play(null);
   }
@@ -145,13 +147,16 @@ export class GameAudio {
     }
     for (const frequency of [523.25, 659.25]) this._trumpet(c, wave, frequency, 1.07 + delay, .85, .018);
   }
-  stopWin() {
-    this.winSequence++;
+  _stopVoice() {
     if (this.voicePlayback) {
       const { source, gain } = this.voicePlayback;
       try { source.stop(); } catch { /* Already ended. */ }
       source.disconnect(); gain.disconnect(); this.voicePlayback = null;
     }
+  }
+  stopWin() {
+    this.winSequence++;
+    this._stopVoice();
     for (const horn of this.horns) {
       horn.gain.gain.cancelScheduledValues(0); horn.gain.gain.value = 0;
       try { horn.oscillator.stop(); horn.vibrato.stop(); } catch { /* Already ended. */ }

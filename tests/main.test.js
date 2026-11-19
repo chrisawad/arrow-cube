@@ -104,8 +104,9 @@ function boot(saved = null, { search = '', puzzleFactory = generatePuzzle, now =
     removeArrow(id, { reverse } = {}) { return this.animate(id, 'remove', undefined, reverse); }
   }
   class Audio {
-    constructor(enabled, options) { sounds.enabled = enabled; sounds.voiceURL = options.winVoiceURL; }
-    setEnabled() {}
+    constructor(enabled, options) { sounds.enabled = enabled; sounds.voiceURL = options.winVoiceURL; sounds.voiceEnabled = options.winVoiceEnabled; }
+    setEnabled(enabled) { sounds.enabled = enabled; }
+    setWinVoiceEnabled(enabled) { sounds.voiceEnabled = enabled; }
     prepare() { sounds.prepared++; }
     swoosh() { sounds.swoosh++; }
     blocked() { sounds.blocked++; }
@@ -587,13 +588,25 @@ test('a partial heart refill needs confirmation, consumes one reset, and preserv
 test('settings contains working sound, animation, and difficulty controls without changing the current board', () => {
   const h = boot();
   assert.equal(h.sounds.voiceURL, '/assets/you-win-boy-test.wav', 'the game uses the selected boy voice');
+  assert.equal(h.sounds.voiceEnabled, false);
+  assert.equal(h.get('win-voice').getAttribute('aria-pressed'), 'false');
+  assert.equal(h.get('win-voice').textContent, 'Off');
   const initial = h.state();
   h.get('settings').click();
   assert.equal(h.get('settings-dialog').open, true);
+  h.get('win-voice').click();
+  assert.equal(h.get('win-voice').getAttribute('aria-pressed'), 'true');
+  assert.equal(h.sounds.voiceEnabled, true);
+  assert.equal(h.saves.at(-1).winVoice, true);
+  assert.equal(boot(h.saves.at(-1)).sounds.voiceEnabled, true, 'speech preference survives reopening');
   h.get('sound').click();
   assert.equal(h.get('sound').getAttribute('aria-pressed'), 'false');
   assert.equal(h.get('sound').textContent, 'Off');
   assert.equal(h.saves.at(-1).sound, false);
+  assert.equal(h.sounds.voiceEnabled, true, 'master mute does not erase the separate voice preference');
+  h.get('win-voice').click();
+  assert.equal(h.saves.at(-1).winVoice, false);
+  assert.equal(h.sounds.enabled, false, 'changing speech cannot unmute the game');
   h.get('motion-select').value = 'reduced';
   h.get('motion-select').emit('change');
   assert.equal(h.view.motionMode, 'reduced');
