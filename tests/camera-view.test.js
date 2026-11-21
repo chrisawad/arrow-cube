@@ -35,21 +35,31 @@ test('the angled starting view zooms closer while keeping every corner inside th
   geometry.dispose();
 });
 
-test('manual zoom survives resizing and Center restores the fitted angled view', () => {
+test('manual zoom magnifies without changing perspective, survives resizing, and resets to the fitted view', () => {
   const view = fixture(412, 844);
   const initialDistance = view.camera.position.z;
+  view.camera.updateMatrixWorld();
+  const corners = [new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, 1, -1)];
+  const before = corners.map(corner => corner.clone().project(view.camera));
   view.zoom = 1.5;
   view.updateCamera();
-  assert(Math.abs(view.camera.position.z * 1.5 - initialDistance) < 1e-6);
+  assert.equal(view.camera.position.z, initialDistance);
+  corners.forEach((corner, index) => {
+    const after = corner.clone().project(view.camera);
+    assert(Math.abs(after.x - before[index].x * 1.5) < 1e-6);
+    assert(Math.abs(after.y - before[index].y * 1.5) < 1e-6);
+  });
   view.camera.aspect = 844 / 412;
   view.updateCamera();
   assert.equal(view.zoom, 1.5);
+  assert.equal(view.camera.zoom, 1.5);
   const zoomedDistance = view.camera.position.z;
   view.rotateBy(0.2, 0.1);
   assert.equal(view.orientationTween, null);
   view.resetView();
   assert.equal(view.zoom, 1);
-  assert(Math.abs(view.camera.position.z - zoomedDistance * 1.5) < 1e-6);
+  assert.equal(view.camera.zoom, 1);
+  assert.equal(view.camera.position.z, zoomedDistance);
   assert.equal(view.velocity.x + view.velocity.y, 0);
   assert(view.orientationTween.from.angleTo(view.orientationTween.to) > 0.1);
 });

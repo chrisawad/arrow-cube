@@ -374,7 +374,9 @@ export class CubeView {
     const fittedDistance = Math.max(...INITIAL_CORNERS.map(corner => corner.z + Math.max(
       Math.abs(corner.x) / (tanX * 0.9), Math.abs(corner.y) / (tanY * 0.9))));
     const closerDistance = this.framingDistance / Math.min(this.camera.aspect, 1) / 1.35;
-    this.camera.position.z = Math.max(closerDistance, fittedDistance) / this.zoom;
+    this.camera.position.z = Math.max(closerDistance, fittedDistance);
+    // Magnify the view without moving closer and exaggerating the near corners.
+    this.camera.zoom = this.zoom;
     this.camera.updateProjectionMatrix();
     this.schedule();
   }

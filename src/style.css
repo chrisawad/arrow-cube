@@ -17,7 +17,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 [hidden] { display: none !important; }
 .app { min-block-size: var(--game-viewport-height, 100dvh); isolation: isolate; }
 .sidebar { position: fixed; inset: var(--top) auto auto var(--left); z-index: 2; inline-size: min(20rem, calc(100% - var(--left) - var(--right))); pointer-events: none; }
-.level-card { pointer-events: auto; border: 1px solid #fff; border-radius: 1rem; padding: .65rem .85rem .25rem; background: #f4fbfff2; box-shadow: 0 5px 25px #52778b12; }
+.level-card { container: level-card / inline-size; pointer-events: auto; border: 1px solid #fff; border-radius: 1rem; padding: .65rem .85rem .25rem; background: #f4fbfff2; box-shadow: 0 5px 25px #52778b12; }
 .level-heading { display: flex; align-items: center; gap: .5rem; min-inline-size: 0; }
 .brand { display: flex; align-items: center; gap: .4rem; flex: none; border-radius: .4rem; color: var(--ink); text-decoration: none; }
 .brand img { display: block; inline-size: 32px; block-size: 32px; border-radius: .4rem; }
@@ -31,7 +31,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .progress-summary b { color: var(--purple); font-size: .8rem; margin-inline-start: .25rem; }
 .progress-track { block-size: 4px; background: #d9e4ed; border-radius: 4px; overflow: clip; margin-block-start: .5rem; }
 .progress-track > div { background: var(--purple); block-size: 100%; inline-size: 0; transition: width .35s; }
-.resource-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-block-start: .2rem; }
+.resource-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-block-start: .2rem; }
 .hearts, .reset-tokens, .reset-icons { display: flex; align-items: center; gap: .25rem; }
 .hearts { color: #c44865; }
 .hearts svg { inline-size: 20px; block-size: 20px; fill: currentColor; stroke: currentColor; stroke-width: 1.5; }
@@ -77,8 +77,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-height: 540px) and (orientation: landscape) {
   .sidebar { inset-inline: var(--left) auto; inline-size: 16.5rem; margin-inline: 0; }
   .game-controls { justify-content: end; }
-  .hearts svg { inline-size: 16px; block-size: 16px; }
-  .reset-tokens svg { inline-size: 18px; block-size: 18px; }
+}
+@container level-card (width < 20rem) {
+  .resource-row { gap: .25rem; }
+  .hearts, .reset-tokens { gap: .125rem; }
+  .reset-tokens { padding-inline-start: .25rem; }
+  .reset-tokens > span { margin-inline-end: 0; }
+  .hearts svg, .reset-tokens svg { inline-size: 16px; block-size: 16px; }
 }
 @media (pointer: coarse) { button, select { min-block-size: 44px; } .dialog-close { min-inline-size: 44px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
@@ -142,7 +147,7 @@ dialog{width:min(470px,calc(100vw - 32px));border:1px solid #fff;border-radius:2
 .setting-action { inline-size: 100%; background: transparent; color: #525cc4; text-align: start; }
 .setting-action b { font-weight: 500; }
 .settings-footer { margin-block-start: 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
-.reset-icons { justify-content: center; color: #6258d5; gap: .6rem; margin-block: 1.25rem .5rem; }
+.reset-icons { justify-content: center; color: #6258d5; gap: .5rem; margin-block: 1.25rem .5rem; }
 .reset-icons svg { inline-size: 32px; block-size: 32px; }
 .reset-clock { display: flex; align-items: center; justify-content: center; gap: .4rem; margin-block: .5rem 1.25rem; color: #607986; }
 .reset-clock svg { inline-size: 16px; block-size: 16px; flex: none; }

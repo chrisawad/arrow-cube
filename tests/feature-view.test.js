@@ -113,7 +113,7 @@ test('slide bands fade before reaching the silhouette and stay faint behind it, 
         if (stage === 'fade') assert(opacity > .22 && opacity < 1, `edge ${a}/${b} must fade while still facing the camera`);
         else {
           assert.equal(opacity, stage === 'front' ? 1 : .22);
-          assert(color.equals(stage === 'front' ? frontColor : backColor));
+          assert.equal(color.getHex(), (stage === 'front' ? frontColor : backColor).getHex());
         }
         assert.equal(depthWrite, stage === 'front', 'only solid front bands can occlude moving arrows');
       }

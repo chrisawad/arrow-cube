@@ -47,9 +47,9 @@ export function loadProgress() {
     const value = JSON.parse(raw);
     if (value.version !== VERSION) return null;
     const progress = normalizeProgress(value);
-    // Upgrade the previous yellow default once; custom palettes stay intact.
-    // New saves carry a version so explicitly choosing yellow still works.
-    if (progress && value.themeVersion === undefined && typeof value.theme?.edge === 'string' && value.theme.edge.toLowerCase() === '#ffff00') progress.theme.edge = DEFAULT_THEME.edge;
+    // Upgrade previous edge defaults once using the version that supplied them.
+    const oldDefault = value.themeVersion === undefined ? '#ffff00' : value.themeVersion === 1 ? '#b000a7' : null;
+    if (progress && progress.theme.edge === oldDefault) progress.theme.edge = DEFAULT_THEME.edge;
     return progress;
   } catch { return null; }
 }

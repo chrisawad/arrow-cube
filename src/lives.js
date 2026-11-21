@@ -1,5 +1,5 @@
 export const MAX_HEARTS = 5;
-export const MAX_RESETS = 4;
+export const MAX_RESETS = 6;
 export const RESET_RECOVERY_MS = 3 * 60 * 60 * 1000;
 
 /** Recover from wall-clock deadlines, including time spent with the app closed. */
@@ -19,15 +19,18 @@ export function recoverResets(value, now = Date.now()) {
 
 /** Preserve old life balances and deadlines when upgrading to reset tokens. */
 export function restoreResets(progress, now = Date.now()) {
-  // A full bank from the three-token version receives the new fourth token.
+  // Previous full banks had three or four tokens and no recovery deadline.
   // Depleted banks keep their count and partially completed recovery interval.
-  if (progress?.resets?.count === 3 && progress.resets.nextAt === null) {
+  const bank = progress?.resets;
+  if (bank?.nextAt === null && (bank.count === 3 || bank.count === 4)) {
     return recoverResets({ count: MAX_RESETS }, now);
   }
-  if (progress?.resets !== undefined) return recoverResets(progress.resets, now);
+  if (bank !== undefined) return recoverResets(bank, now);
   const legacy = progress?.lives;
   if (Number.isInteger(legacy?.count) && legacy.count >= 0 && legacy.count <= 5) {
-    return recoverResets({ count: Math.min(MAX_RESETS, legacy.count), nextAt: legacy.nextAt }, now);
+    // Legacy lives migrated with a four-reset cap. Carry that full balance forward.
+    if (legacy.count >= 4) return recoverResets({ count: MAX_RESETS }, now);
+    return recoverResets(legacy, now);
   }
   return recoverResets(undefined, now);
 }
