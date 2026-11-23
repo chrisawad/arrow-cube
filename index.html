@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta id="theme-color" name="theme-color" content="#e2f1f8"><meta name="description" content="Untangle a rotating cube of arrows. Every puzzle is solvable. Play, grow, and pick up right where you left off.">
+  <link rel="canonical" id="public-game-url" href="https://cube.chrisawad.com/">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/arrow-cube-corner-v2-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="./icons/arrow-cube-corner-v2-192.png" type="image/png" sizes="192x192">
@@ -18,6 +19,15 @@
           <div class="level-heading">
             <a class="brand" href="./" aria-label="Arrow Cube home"><img src="./icons/arrow-cube-corner-v2-192.png" width="32" height="32" alt=""><span class="brand-name">ARROW <span>CUBE</span></span></a>
             <span class="level-title">Level <b id="level">5</b></span>
+            <button id="share-game" class="share-button" type="button">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="m18 5-12 7 12 7" fill="none" stroke="currentColor" stroke-width="2.25"/>
+                <circle cx="18" cy="5" r="3.5"/>
+                <circle cx="6" cy="12" r="3.5"/>
+                <circle cx="18" cy="19" r="3.5"/>
+              </svg>
+              <span>Share</span>
+            </button>
           </div>
           <div class="completion-row">
             <div class="progress-track" id="completion" role="progressbar" aria-label="Puzzle completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
@@ -50,6 +60,12 @@
       </section>
     </main>
   </div>
+  <dialog id="share-dialog" aria-labelledby="share-title">
+    <h2 id="share-title">Share Arrow Cube</h2>
+    <label for="share-link">Copy the game link</label>
+    <input id="share-link" type="url" readonly autofocus>
+    <button class="secondary" type="button" data-close>Done</button>
+  </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <button class="dialog-close" type="button" data-close aria-label="Close settings" autofocus>×</button>
     <h2 id="settings-title">Settings</h2>

@@ -57,7 +57,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The Pages address is **https://chrisawad.github.io/arrow-cube/**. Because it uses HTTPS, a compatible browser can install it as a PWA.
+Play Arrow Cube at [cube.chrisawad.com](https://cube.chrisawad.com/). The public address forwards to the GitHub Pages deployment, where a compatible browser can install Arrow Cube as a PWA.
 
 To run a published Docker image:
 

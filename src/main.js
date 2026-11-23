@@ -179,6 +179,33 @@ $('win-voice').addEventListener('click',()=>{winVoiceEnabled=!winVoiceEnabled;au
 $('choose-size').addEventListener('click',()=>{if(crashes>=MAX_HEARTS){showLoss();return;}$('settings-dialog').close();$('size-input').value=puzzle.size;clearSizeError();syncChoice();$('difficulty-dialog').showModal();});
 $('help').addEventListener('click',()=>$('help-dialog').showModal());
 $('settings').addEventListener('click',()=>$('settings-dialog').showModal());
+let sharing = false;
+$('share-game').addEventListener('click', async () => {
+  if (sharing) return;
+  sharing = true;
+  const url = $('public-game-url').href;
+  try {
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'Arrow Cube', url });
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      notify('Game link copied.');
+    } catch {
+      const link = $('share-link');
+      link.value = url;
+      $('share-dialog').showModal();
+      link.select();
+    }
+  } finally {
+    sharing = false;
+  }
+});
 document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(dialog!==$('loss-dialog')&&dialog!==$('theme-dialog')&&event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
 function clearSizeError(){
