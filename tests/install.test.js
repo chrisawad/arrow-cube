@@ -5,6 +5,7 @@ import { setupInstall } from '../src/install.js';
 class Element extends EventTarget {
   hidden = false;
   textContent = '';
+  value = '';
   open = false;
   attributes = new Map();
   setAttribute(key, value) { this.attributes.set(key, value); }
@@ -15,13 +16,14 @@ class Element extends EventTarget {
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function harness(t, { secure = true, embedded = false, installed = false, modern,
-  production = false, serviceWorker, readyState = 'complete', iosStandalone = false } = {}) {
+  production = false, serviceWorker, readyState = 'complete', iosStandalone = false, userAgent = '' } = {}) {
   const elements = new Map(['install', 'install-help', 'install-dialog', 'install-confirm',
     'install-status', 'install-guidance', 'install-offline', 'install-main', 'install-main-help',
-    'install-promo', 'install-promo-detail'].map(id => [id, new Element()]));
+    'install-promo', 'install-promo-detail', 'install-link-panel', 'install-link'].map(id => [id, new Element()]));
+  elements.set('public-game-url', { href: 'https://cube.chrisawad.com/' });
   const win = new EventTarget();
   win.isSecureContext = secure; win.self = win; win.top = embedded ? {} : win;
-  const nav = { standalone: iosStandalone };
+  const nav = { standalone: iosStandalone, userAgent };
   const display = new EventTarget(); display.matches = installed;
   if (modern) nav.install = modern;
   if (serviceWorker) nav.serviceWorker = serviceWorker;
@@ -51,7 +53,7 @@ test('insecure LAN pages offer actionable help without exposing a fake install a
   assert.equal(h.get('install-confirm').hidden, true);
   assert.equal(h.get('install-help').hidden, false);
   assert.match(h.get('install-guidance').textContent, /HTTPS/);
-  assert.match(h.get('install-guidance').textContent, /computer serving the game/);
+  assert.equal(h.get('install-link').value, 'https://cube.chrisawad.com/');
   h.get('install-help').click();
   assert.equal(h.get('install-dialog').open, true);
   assert.equal(offer(h.win).defaultPrevented, false);
@@ -75,6 +77,18 @@ test('unsupported browsers retain usable help and never display a nonfunctional 
   assert.equal(h.get('install-dialog').open, true);
 });
 
+test('Android without a prompt keeps help and a selectable game link available', t => {
+  const h = harness(t, { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 8 Pro)' });
+  assert.equal(h.get('install-main').hidden, true);
+  assert.equal(h.get('install-help').hidden, false);
+  h.get('install-help').click();
+  assert.equal(h.get('install-dialog').open, true);
+  assert.match(h.get('install-guidance').textContent, /Open in Chrome.*copy it, then paste it into Chrome/);
+  assert.match(h.get('install-guidance').textContent, /Install.*Add to home screen.*app drawer/);
+  assert.equal(h.get('install-link-panel').hidden, false);
+  assert.equal(h.get('install-link').value, 'https://cube.chrisawad.com/');
+});
+
 test('fallback prompts run directly on click, are single-use, and only confirm installation on appinstalled', async t => {
   const h = harness(t);
   let clicking = false, calls = 0;
@@ -93,7 +107,9 @@ test('fallback prompts run directly on click, are single-use, and only confirm i
   h.get('install').click(); assert.equal(calls, 1);
   h.win.dispatchEvent(new Event('appinstalled'));
   assert.equal(h.messages.at(-1), 'Arrow Cube is installed.');
-  assert.equal(h.get('install-help').hidden, true);
+  assert.equal(h.get('install-help').hidden, false);
+  h.get('install-help').click();
+  assert.equal(h.get('install-dialog').open, true);
 });
 
 test('a dismissed fallback prompt reveals help and a fresh event allows another attempt', async t => {
@@ -155,13 +171,17 @@ test('modern API cancellation retains a directly activated retry and success use
 });
 
 test('standalone apps suppress installation even if another prompt is offered', t => {
-  const h = harness(t, { installed: true });
+  const h = harness(t, { installed: true, userAgent: 'Mozilla/5.0 (Linux; Android 15)' });
   assert.equal(h.get('install').hidden, true);
-  assert.equal(h.get('install-help').hidden, true);
+  assert.equal(h.get('install-help').hidden, false);
   assert.equal(h.get('install-promo').hidden, true);
   assert.equal(h.get('install-main').hidden, true);
   assert.equal(h.get('install-main-help').hidden, true);
   assert.equal(offer(h.win).defaultPrevented, false);
+  h.get('install-help').click();
+  assert.equal(h.get('install-dialog').open, true);
+  assert.match(h.get('install-guidance').textContent, /app drawer.*Arrow Cube/);
+  assert.equal(h.get('install-link-panel').hidden, true);
 });
 
 test('the main-screen promotion appears immediately, with help until a usable prompt is offered', t => {
@@ -176,10 +196,11 @@ test('the main-screen promotion appears immediately, with help until a usable pr
   assert.equal(prompts, 0, 'show the promotion without opening browser consent automatically');
   assert.equal(h.get('install-main').hidden, false);
   assert.equal(h.get('install-main-help').hidden, true);
+  assert.equal(h.get('install-help').hidden, false);
 });
 
 test('main-screen installation keeps direct click activation and hides the entire promotion on appinstalled', async t => {
-  const h = harness(t);
+  const h = harness(t, { userAgent: 'Mozilla/5.0 (Linux; Android 15)' });
   let clicking = false, calls = 0;
   offer(h.win, { prompt() { assert(clicking); calls++; return Promise.resolve(); }, choice: Promise.resolve({ outcome: 'accepted' }) });
   clicking = true; h.get('install-main').click(); clicking = false;
@@ -192,6 +213,10 @@ test('main-screen installation keeps direct click activation and hides the entir
   assert.equal(h.get('install-promo').hidden, true);
   assert.equal(h.get('install-main').hidden, true);
   assert.equal(h.get('install-main-help').hidden, true);
+  h.get('install-help').click();
+  assert.equal(h.get('install-dialog').open, true);
+  assert.match(h.get('install-guidance').textContent, /app drawer.*Arrow Cube/);
+  assert.equal(h.get('install-link-panel').hidden, true);
 });
 
 test('LAN pages keep main-screen installation help without a nonfunctional install action', t => {
@@ -216,6 +241,13 @@ test('switching to standalone mode removes the promotion, including iOS app laun
 test('iOS standalone launches start without any install promotion', t => {
   const h = harness(t, { iosStandalone: true });
   assert.equal(h.get('install-promo').hidden, true);
+  assert.match(h.get('install-guidance').textContent, /Find Arrow Cube on your Home Screen/);
+});
+
+test('iOS browsers get Safari instructions without Android menu or launcher steps', t => {
+  const h = harness(t, { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' });
+  assert.match(h.get('install-guidance').textContent, /Safari.*Share.*Add to Home Screen/);
+  assert.doesNotMatch(h.get('install-guidance').textContent, /Chrome|app drawer/);
 });
 
 test('offline setup is production-only and is not required to show a browser-provided install prompt', t => {

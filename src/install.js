@@ -5,6 +5,8 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const dialogButton = document.getElementById('install-confirm');
   const status = document.getElementById('install-status');
   const guidance = document.getElementById('install-guidance');
+  const linkPanel = document.getElementById('install-link-panel');
+  const gameLink = document.getElementById('install-link');
   const offlineStatus = document.getElementById('install-offline');
   const mainButton = document.getElementById('install-main');
   const mainHelp = document.getElementById('install-main-help');
@@ -14,6 +16,21 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const secure = window.isSecureContext === true;
   const embedded = window.self !== window.top;
   const modernInstall = secure && !embedded && typeof navigator.install === 'function';
+  const userAgent = navigator.userAgent || '';
+  const android = navigator.userAgentData?.platform === 'Android' || /Android/i.test(userAgent);
+  const appleMobile = /iPhone|iPad|iPod/.test(userAgent) || navigator.standalone === true
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const launchInstructions = android
+    ? 'Swipe up from your Home Screen to open the app drawer. Search for Arrow Cube, then tap it to play.'
+    : appleMobile ? 'Find Arrow Cube on your Home Screen and tap it to play.'
+      : 'Find Arrow Cube in your device’s app launcher or your browser’s installed apps.';
+  const installInstructions = android
+    ? 'In the in-app browser menu, choose Open in Chrome or Open in browser. If that option is missing, press and hold the game link below to copy it, then paste it into Chrome. In Chrome, open the ⋮ menu and look for Install, Install and create shortcut, or Add to home screen. If Arrow Cube is already installed, swipe up from your Home Screen and search for it in the app drawer.'
+    : appleMobile
+      ? 'Open the game in Safari. Tap Share, then Add to Home Screen. Turn on Open as Web App if you see it, then tap Add.'
+      : 'Open the game in a full browser. Look for the Install icon in the address bar or check the browser menu for Install page as app in Chrome or Apps in Edge.';
+  const publicURL = document.getElementById('public-game-url')?.href;
+  if (gameLink && publicURL) gameLink.value = publicURL;
   const controller = new AbortController();
   const options = { signal: controller.signal };
   let deferredPrompt = null, pending = false, accepted = false, message = '';
@@ -30,36 +47,33 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       if (pending) control.setAttribute('aria-disabled', 'true');
       else control.removeAttribute('aria-disabled');
     }
-    if (helpButton) helpButton.hidden = installed || ready;
     if (promo) promo.hidden = installed;
     if (mainHelp) mainHelp.hidden = installed || ready;
+    if (linkPanel) linkPanel.hidden = installed || !publicURL;
     if (promoDetail) promoDetail.textContent = pending ? 'Finish in your browser.'
       : accepted ? 'Finish the browser confirmation.'
         : !secure ? 'Use a secure link to install.'
           : embedded ? 'Install from your browser.' : 'Full screen. Play offline.';
     if (promo && promoDetail) promo.title = promoDetail.textContent;
-    let title, detail;
+    let title;
+    let detail = installInstructions;
     if (installed) {
       title = 'Arrow Cube is installed or running as an app.';
-      detail = 'Open it from your device’s apps whenever you want to play.';
+      detail = launchInstructions;
     } else if (!secure) {
       title = 'This address cannot offer app installation.';
-      detail = 'Open the game at an HTTPS address in your regular browser. A localhost address also works on the computer serving the game. Plain HTTP over your local network does not support app installation.';
+      detail = `Use the public HTTPS game link below. ${installInstructions}`;
     } else if (embedded) {
       title = 'Open the game directly in a browser.';
-      detail = 'App previews and embedded pages may not offer installation. Open this address in a full browser such as Chrome or Edge, then look for its app-install option.';
     } else if (pending) {
       title = 'Continue in your browser’s install prompt.';
-      detail = 'Your browser controls installation. You can accept or cancel its confirmation.';
     } else if (ready) {
       title = 'Your browser is ready to install Arrow Cube.';
-      detail = 'Choose Install app to open the browser’s confirmation. Installation only happens with your approval.';
     } else if (accepted) {
       title = 'The browser accepted your install request.';
-      detail = 'Finish any remaining browser confirmation. Installation has not yet been confirmed by this page.';
+      detail = `Finish any remaining browser confirmation. ${installInstructions}`;
     } else {
       title = 'Your browser has not offered an install prompt.';
-      detail = 'Open this page directly in a full browser, rather than an app preview. Check the browser menu for its install or add-to-home-screen option. Availability depends on the browser, and an already-installed app may not show another prompt.';
     }
     if (status) status.textContent = message || title;
     if (guidance) guidance.textContent = detail;
@@ -111,7 +125,7 @@ export function setupInstall(button, notify = () => {}, { production = import.me
         if (!installed) {
           accepted = choice.outcome === 'accepted';
           announce(accepted ? 'Install request accepted. Finish any browser confirmation.'
-            : 'Installation canceled. You can use Install help or try again when the browser offers it.');
+            : 'Installation canceled. Choose How to install for other options.');
         }
       }
     } catch (error) {

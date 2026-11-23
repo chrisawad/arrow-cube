@@ -42,7 +42,7 @@
             <strong class="install-promo-copy">Get the app</strong>
             <span id="install-promo-detail" class="sr-only">Full screen. Play offline.</span>
             <button id="install-main" type="button" aria-describedby="install-promo-detail" hidden>Install</button>
-            <button id="install-main-help" type="button" aria-describedby="install-promo-detail" aria-haspopup="dialog" aria-controls="install-dialog" hidden>Install help</button>
+            <button id="install-main-help" type="button" aria-describedby="install-promo-detail" aria-haspopup="dialog" aria-controls="install-dialog" hidden>How to install</button>
           </div>
         </section>
       </aside>
@@ -76,7 +76,7 @@
       <button id="theme-settings" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="theme-dialog"><span>Theme colors</span><span aria-hidden="true">›</span></button>
       <button id="choose-size" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="difficulty-dialog"><span>Difficulty</span><span><b id="dimension">5 × 5</b> <span aria-hidden="true">›</span></span></button>
     </div>
-    <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><div><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">Install help</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button></div></div>
+    <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><div><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">How to install</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button></div></div>
   </dialog>
   <dialog id="theme-dialog" popover="auto" aria-labelledby="theme-title">
     <button id="theme-close" class="dialog-close" type="button" aria-label="Close theme colors" autofocus>×</button>
@@ -191,9 +191,13 @@
   <dialog id="install-dialog" aria-labelledby="install-title">
     <button class="dialog-close" type="button" data-close aria-label="Close">×</button>
     <span class="eyebrow">TAKE THE CUBE WITH YOU</span>
-    <h2 id="install-title">Install Arrow Cube.</h2>
+    <h2 id="install-title">How to install Arrow Cube</h2>
     <p id="install-status" role="status"></p>
     <p id="install-guidance"></p>
+    <div id="install-link-panel" hidden>
+      <label for="install-link">Game link to copy</label>
+      <input id="install-link" type="url" readonly>
+    </div>
     <p id="install-offline" class="small"></p>
     <button id="install-confirm" class="primary" type="button" hidden>Install app <span aria-hidden="true">↗</span></button>
     <button class="quiet" type="button" data-close>Keep playing</button>
