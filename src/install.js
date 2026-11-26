@@ -11,7 +11,7 @@ export function setupInstall(button, { production = import.meta.env?.PROD === tr
   const publicURL = get('public-game-url').href;
   const secure = window.isSecureContext === true;
   const embedded = window.self !== window.top;
-  const modernInstall = secure && !embedded && typeof navigator.install === 'function';
+  let modernInstall = secure && !embedded && typeof navigator.install === 'function';
   const agent = navigator.userAgent || '';
   const ios = /iPhone|iPad|iPod/.test(agent) || navigator.standalone === true
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -56,11 +56,15 @@ export function setupInstall(button, { production = import.meta.env?.PROD === tr
 
   function update() {
     const native = !installed && (pending || modernInstall || deferredPrompt !== null);
+    const focused = dialog.open ? document.activeElement : null;
     button.hidden = installed;
-    manual.hidden = native && !external;
+    manual.hidden = native;
     confirm.hidden = !native;
     confirm.setAttribute('aria-disabled', String(pending));
     confirm.textContent = pending ? 'Installing…' : 'Install app';
+    if (!focused || installed) return;
+    if (native && manual.contains(focused)) confirm.focus();
+    else if (!native && focused === confirm) dismiss.focus();
   }
 
   function confirmInstalled() {
@@ -80,7 +84,7 @@ export function setupInstall(button, { production = import.meta.env?.PROD === tr
       step.hidden = step.dataset.installContext !== (external ? 'embedded' : 'browser');
     }
     update();
-    const focusInstall = !confirm.hidden && !external;
+    const focusInstall = !confirm.hidden;
     confirm.toggleAttribute('autofocus', focusInstall);
     dismiss.toggleAttribute('autofocus', !focusInstall);
     dialog.showModal();
@@ -194,6 +198,8 @@ export function setupInstall(button, { production = import.meta.env?.PROD === tr
         }
       }
     } catch (error) {
+      // AbortError can also mean the browser could not offer installation.
+      modernInstall = false;
       if (!controller.signal.aborted && !installed) {
         status.textContent = error?.name === 'AbortError'
           ? 'Installation canceled. You can keep playing here.'

@@ -178,14 +178,70 @@ test('uses the native offer only on click and consumes dismissed prompts once', 
   assert.equal(entry.hidden, true);
 });
 
-test('keeps embedded instructions visible alongside a native offer and copies the clean URL', async t => {
+test('compacts an open Dashboard dialog on a late native offer and keeps it compact while prompting', async t => {
+  const { confirm, dialog, entry, get, window } = fixture(t, { hash: '#from=games-dashboard', standalone: true });
+  await wait(0);
+  assert.equal(dialog.open, true);
+  assert.equal(get('install-manual').hidden, false);
+  assert.equal(get('install-copy').open, true);
+
+  const { called } = addNativePrompt(window);
+  assert.equal(confirm.hidden, false);
+  assert.equal(get('install-manual').hidden, true);
+  assert.equal(called(), 0);
+  dialog.close();
+  entry.click();
+  assert.equal(get('install-manual').hidden, true);
+  confirm.click();
+  assert.equal(confirm.textContent, 'Installing…');
+  assert.equal(get('install-manual').hidden, true);
+  await wait(0);
+  assert.equal(called(), 1);
+  assert.equal(confirm.hidden, true);
+  assert.equal(get('install-manual').hidden, false);
+  assert.equal(get('install-status').textContent, 'Installation canceled. You can keep playing here.');
+});
+
+test('falls back to instructions when the native API rejects in an in-app browser', async t => {
+  for (const name of ['SecurityError', 'AbortError']) {
+    await t.test(name, async subtest => {
+      let rejectInstall;
+      const { confirm, dialog, entry, get } = fixture(subtest, {
+        agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro; wv) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
+        browser: { install: () => new Promise((_, reject) => { rejectInstall = reject; }) },
+      });
+      await wait(0);
+      assert.equal(confirm.hidden, false);
+      assert.equal(get('install-manual').hidden, true);
+      confirm.click();
+      assert.equal(confirm.textContent, 'Installing…');
+      assert.equal(get('install-manual').hidden, true);
+      rejectInstall(new DOMException('Install did not complete.', name));
+      await wait(0);
+      assert.equal(confirm.hidden, true);
+      assert.equal(get('install-manual').hidden, false);
+      assert.equal(get('install-copy').open, true);
+      assert.equal(get('install-link').value, publicURL);
+      assert.match(get('install-status').textContent, name === 'AbortError' ? /^Installation canceled/ : /^The installer could not open/);
+      dialog.close();
+      entry.click();
+      assert.equal(get('install-manual').hidden, false);
+      assert.equal(confirm.hidden, true);
+    });
+  }
+});
+
+test('keeps the instructions and clean copy link in a frame without native installation', async t => {
   const copied = [];
-  const { confirm, get } = fixture(t, {
+  const { confirm, get, window } = fixture(t, {
+    embedded: true,
     agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro; wv) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
-    browser: { install: async () => {}, clipboard: { writeText: async value => copied.push(value) } },
+    browser: { install: () => assert.fail('A frame cannot start native installation'), clipboard: { writeText: async value => copied.push(value) } },
   });
   await wait(0);
-  assert.equal(confirm.hidden, false);
+  const { event } = addNativePrompt(window);
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(confirm.hidden, true);
   assert.equal(get('install-manual').hidden, false);
   assert.equal(get('install-copy').open, true);
   get('install-copy-button').click();
