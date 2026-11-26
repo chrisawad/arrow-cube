@@ -14,6 +14,7 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const promoDetail = document.getElementById('install-promo-detail');
   const entryHelp = document.getElementById('install-entry-help');
   const entryGuidance = document.getElementById('install-entry-guidance');
+  const entryCopy = document.getElementById('install-entry-copy');
   const entryLink = document.getElementById('install-entry-link');
   const buttons = [button, dialogButton, mainButton].filter(Boolean);
   const secure = window.isSecureContext === true;
@@ -40,7 +41,11 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const publicURL = document.getElementById('public-game-url')?.href;
   if (gameLink && publicURL) gameLink.value = publicURL;
   if (entryLink && publicURL) entryLink.value = publicURL;
-  if (entryGuidance) entryGuidance.textContent = installInstructions;
+  if (entryGuidance) entryGuidance.textContent = android
+    ? 'Open in Chrome → ⋮ → Install or Add to home screen.'
+    : appleMobile
+      ? 'Open in Safari → Share → Add to Home Screen → Add.'
+      : 'Open in Chrome or Edge and look for Install in the address bar or menu.';
   const controller = new AbortController();
   const options = { signal: controller.signal };
   let deferredPrompt = null, pending = false, accepted = false, message = '';
@@ -92,6 +97,12 @@ export function setupInstall(button, notify = () => {}, { production = import.me
     if (guidance) guidance.textContent = detail;
     if (offlineStatus) offlineStatus.textContent = offline;
   }
+  function confirmInstalled() {
+    installed = true;
+    deferredPrompt = null;
+    accepted = false;
+    message = '';
+  }
   function announce(text) { message = text; update(); notify(text); }
   // Initialize once per visit; asynchronous browser events must not reopen it.
   if (entryHelp) entryHelp.open = showEntryHelp && !installed;
@@ -101,11 +112,44 @@ export function setupInstall(button, notify = () => {}, { production = import.me
     if (helpDialog && !helpDialog.open) helpDialog.showModal();
   }
   for (const control of [helpButton, mainHelp].filter(Boolean)) control.addEventListener('click', openHelp, options);
+  entryCopy?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(publicURL);
+      if (!controller.signal.aborted) notify('Game link copied.');
+    } catch {
+      if (controller.signal.aborted || installed || !entryLink) return;
+      entryLink.hidden = false;
+      entryLink.focus();
+      entryLink.select();
+    }
+  }, options);
+
+  async function checkInstalledApp() {
+    if (installed || !secure || embedded || typeof navigator.getInstalledRelatedApps !== 'function') return;
+    const manifestURL = document.querySelector('link[rel~="manifest"]')?.href;
+    if (!manifestURL) return;
+    const manifestID = new URL('./', manifestURL).href;
+    try {
+      const related = await navigator.getInstalledRelatedApps();
+      if (controller.signal.aborted || installed) return;
+      if (related.some(app => app.platform === 'webapp' && (app.url
+        ? app.url === manifestURL
+        : app.id === manifestID))) {
+        confirmInstalled();
+        update();
+      }
+    } catch {
+      // An unavailable or denied lookup leaves the manual instructions visible.
+    }
+  }
+  if (document.readyState === 'complete') checkInstalledApp();
+  else window.addEventListener('load', checkInstalledApp, { ...options, once: true });
+
   appDisplay?.addEventListener?.('change', event => {
-    if (!inApp && event.matches) { installed = true; deferredPrompt = null; update(); }
+    if (!inApp && event.matches) { confirmInstalled(); update(); }
   }, options);
   window.addEventListener('pageshow', () => {
-    if (inOwnAppWindow()) { installed = true; deferredPrompt = null; }
+    if (!installed && inOwnAppWindow()) confirmInstalled();
     update();
   }, options);
   window.addEventListener('beforeinstallprompt', event => {
@@ -114,7 +158,7 @@ export function setupInstall(button, notify = () => {}, { production = import.me
     deferredPrompt = event; accepted = false; message = ''; update();
   }, options);
   window.addEventListener('appinstalled', () => {
-    installed = true; deferredPrompt = null; accepted = false;
+    confirmInstalled();
     announce('Arrow Cube is installed.');
   }, options);
 
@@ -126,7 +170,7 @@ export function setupInstall(button, notify = () => {}, { production = import.me
         // Call before any await so browser-controlled consent retains the click activation.
         await navigator.install();
         if (controller.signal.aborted) return;
-        installed = true;
+        confirmInstalled();
         announce('Arrow Cube was installed or opened.');
       } else {
         // The captured event is single-use, including after dismissal or a failure.

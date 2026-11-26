@@ -12,25 +12,30 @@ class Element extends EventTarget {
   getAttribute(key) { return this.attributes.get(key) ?? null; }
   removeAttribute(key) { this.attributes.delete(key); }
   showModal() { this.open = true; }
+  focus() { this.focused = true; }
+  select() { this.selected = true; }
   click() { this.dispatchEvent(new Event('click')); }
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
+const manifestURL = 'https://chrisawad.github.io/arrow-cube/manifest.webmanifest';
 function harness(t, { secure = true, embedded = false, installed = false, modern,
   production = false, serviceWorker, readyState = 'complete', iosStandalone = false, userAgent = '',
-  hash = '', referrer = '' } = {}) {
+  hash = '', referrer = '', lookup, clipboard } = {}) {
   const elements = new Map(['install', 'install-help', 'install-dialog', 'install-confirm',
     'install-status', 'install-guidance', 'install-offline', 'install-main', 'install-main-help',
     'install-promo', 'install-promo-detail', 'install-link-panel', 'install-link',
-    'install-entry-help', 'install-entry-guidance', 'install-entry-link'].map(id => [id, new Element()]));
+    'install-entry-help', 'install-entry-guidance', 'install-entry-copy', 'install-entry-link'].map(id => [id, new Element()]));
+  elements.get('install-entry-link').hidden = true;
   elements.set('public-game-url', { href: 'https://cube.chrisawad.com/' });
   const win = new EventTarget();
   win.isSecureContext = secure; win.self = win; win.top = embedded ? {} : win;
   win.location = { hash };
-  const nav = { standalone: iosStandalone, userAgent };
+  const nav = { standalone: iosStandalone, userAgent, getInstalledRelatedApps: lookup, clipboard };
   const display = new EventTarget(); display.matches = installed;
   if (modern) nav.install = modern;
   if (serviceWorker) nav.serviceWorker = serviceWorker;
-  const globals = { window: win, navigator: nav, document: { readyState, referrer, getElementById: id => elements.get(id) },
+  const globals = { window: win, navigator: nav, document: { readyState, referrer, getElementById: id => elements.get(id),
+    querySelector: selector => selector === 'link[rel~="manifest"]' ? { href: manifestURL } : null },
     matchMedia: () => display };
   for (const [key, value] of Object.entries(globals)) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
@@ -88,6 +93,7 @@ test('Android without a prompt keeps help and a selectable game link available',
   assert.equal(h.get('install-entry-help').open, true);
   assert.match(h.get('install-entry-guidance').textContent, /Open in Chrome.*Add to home screen/);
   assert.equal(h.get('install-entry-link').value, 'https://cube.chrisawad.com/');
+  assert.equal(h.get('install-entry-link').hidden, true);
   h.get('install-help').click();
   assert.equal(h.get('install-dialog').open, true);
   assert.match(h.get('install-guidance').textContent, /Open in Chrome.*copy it, then paste it into Chrome/);
@@ -107,7 +113,7 @@ test('dashboard launches ignore inherited standalone state until this game confi
   assert.equal(entry.hidden, false);
   assert.equal(entry.open, true);
   assert.equal(h.get('install-dialog').open, false, 'entry help stays inline');
-  assert.match(h.get('install-entry-guidance').textContent, /Open in Safari.*paste it into Safari.*Share.*Add to Home Screen/);
+  assert.equal(h.get('install-entry-guidance').textContent, 'Open in Safari → Share → Add to Home Screen → Add.');
   assert.equal(h.get('install-entry-link').value, 'https://cube.chrisawad.com/');
   assert.equal(h.win.location.hash, hash);
 
@@ -126,6 +132,65 @@ test('dashboard launches ignore inherited standalone state until this game confi
   h.win.dispatchEvent(new Event('appinstalled'));
   assert.equal(entry.hidden, true);
   assert.equal(h.get('install-main').hidden, true);
+});
+
+test('a verifiable Arrow Cube install hides entry help without waiting before showing it', async t => {
+  let resolveLookup, lookupCalls = 0;
+  const h = harness(t, { hash: '#from=games-dashboard', readyState: 'loading',
+    lookup: () => {
+      lookupCalls++;
+      return new Promise(resolve => { resolveLookup = resolve; });
+    } });
+  assert.equal(h.get('install-entry-help').hidden, false);
+  assert.equal(lookupCalls, 0);
+  h.win.dispatchEvent(new Event('load'));
+  assert.equal(lookupCalls, 1);
+  assert.equal(h.get('install-entry-help').hidden, false);
+  offer(h.win);
+  assert.equal(h.get('install-main').hidden, false);
+  resolveLookup([{ platform: 'webapp', url: manifestURL }]);
+  await flush();
+  assert.equal(h.get('install-entry-help').hidden, true);
+  assert.equal(h.get('install-main').hidden, true);
+  assert.match(h.get('install-status').textContent, /Arrow Cube is installed/);
+});
+
+test('reports about the dashboard or denied lookups keep the compact instructions available', async t => {
+  for (const lookup of [
+    async () => [{ platform: 'webapp', url: 'https://games.chrisawad.com/manifest.webmanifest' }],
+    async () => { throw new Error('denied'); },
+  ]) {
+    await t.test('unconfirmed installation', async child => {
+      const h = harness(child, { hash: '#from=games-dashboard', installed: true, lookup });
+      await flush();
+      assert.equal(h.get('install-entry-help').hidden, false);
+      assert.equal(h.get('install-entry-help').open, true);
+    });
+  }
+});
+
+test('Copy link uses the clean game URL and reveals a selectable field if clipboard access fails', async t => {
+  await t.test('clipboard denied', async child => {
+    const h = harness(child, { hash: '#from=games-dashboard',
+      clipboard: { writeText: async () => { throw new Error('denied'); } } });
+    const link = h.get('install-entry-link');
+    assert.equal(link.hidden, true);
+    h.get('install-entry-copy').click();
+    await flush();
+    assert.equal(link.hidden, false);
+    assert.equal(link.selected, true);
+    assert.equal(link.value, 'https://cube.chrisawad.com/');
+  });
+  await t.test('clipboard available', async child => {
+    const written = [];
+    const h = harness(child, { hash: '#from=games-dashboard',
+      clipboard: { writeText: async value => { written.push(value); } } });
+    h.get('install-entry-copy').click();
+    await flush();
+    assert.deepEqual(written, ['https://cube.chrisawad.com/']);
+    assert.equal(h.get('install-entry-link').hidden, true);
+    assert.deepEqual(h.messages, ['Game link copied.']);
+  });
 });
 
 test('an unmarked in-app browser can show entry help with an inherited app display mode', t => {
