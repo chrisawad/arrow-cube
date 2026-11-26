@@ -12,6 +12,9 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const mainHelp = document.getElementById('install-main-help');
   const promo = document.getElementById('install-promo');
   const promoDetail = document.getElementById('install-promo-detail');
+  const entryHelp = document.getElementById('install-entry-help');
+  const entryGuidance = document.getElementById('install-entry-guidance');
+  const entryLink = document.getElementById('install-entry-link');
   const buttons = [button, dialogButton, mainButton].filter(Boolean);
   const secure = window.isSecureContext === true;
   const embedded = window.self !== window.top;
@@ -20,6 +23,11 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const android = navigator.userAgentData?.platform === 'Android' || /Android/i.test(userAgent);
   const appleMobile = /iPhone|iPad|iPod/.test(userAgent) || navigator.standalone === true
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const fromDashboard = new URLSearchParams(window.location.hash.slice(1)).get('from') === 'games-dashboard'
+    || /^https:\/\/(?:games\.chrisawad\.com(?:\/|$)|chrisawad\.github\.io\/games-dashboard(?:[/?#]|$))/i.test(document.referrer);
+  const inApp = embedded || fromDashboard || /\bwv\b|FBAN\/|FBAV\/|Instagram|GSA\/|TikTok|Line\//i.test(userAgent);
+  // Some in-app tabs have the same user agent as the mobile browser.
+  const showEntryHelp = inApp || android || appleMobile;
   const launchInstructions = android
     ? 'Swipe up from your Home Screen to open the app drawer. Search for Arrow Cube, then tap it to play.'
     : appleMobile ? 'Find Arrow Cube on your Home Screen and tap it to play.'
@@ -27,15 +35,19 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   const installInstructions = android
     ? 'In the in-app browser menu, choose Open in Chrome or Open in browser. If that option is missing, press and hold the game link below to copy it, then paste it into Chrome. In Chrome, open the ⋮ menu and look for Install, Install and create shortcut, or Add to home screen. If Arrow Cube is already installed, swipe up from your Home Screen and search for it in the app drawer.'
     : appleMobile
-      ? 'Open the game in Safari. Tap Share, then Add to Home Screen. Turn on Open as Web App if you see it, then tap Add.'
+      ? 'In the in-app browser menu, choose Open in Safari if available. Otherwise copy the game link below and paste it into Safari. In Safari, tap Share, then Add to Home Screen. Turn on Open as Web App if you see it, then tap Add.'
       : 'Open the game in a full browser. Look for the Install icon in the address bar or check the browser menu for Install page as app in Chrome or Apps in Edge.';
   const publicURL = document.getElementById('public-game-url')?.href;
   if (gameLink && publicURL) gameLink.value = publicURL;
+  if (entryLink && publicURL) entryLink.value = publicURL;
+  if (entryGuidance) entryGuidance.textContent = installInstructions;
   const controller = new AbortController();
   const options = { signal: controller.signal };
   let deferredPrompt = null, pending = false, accepted = false, message = '';
   const appDisplay = globalThis.matchMedia?.('(display-mode: standalone)');
-  let installed = appDisplay?.matches || navigator.standalone === true;
+  // A dashboard window can carry its own display mode into this page.
+  const inOwnAppWindow = () => !inApp && (appDisplay?.matches || navigator.standalone === true);
+  let installed = inOwnAppWindow();
   let offline = !secure ? 'Offline play needs a secure connection.'
     : !production ? 'Offline play is not enabled for this preview. Use the full app address for offline play.'
       : !('serviceWorker' in navigator) ? 'This browser does not provide offline app support.' : 'Preparing offline play…';
@@ -47,8 +59,9 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       if (pending) control.setAttribute('aria-disabled', 'true');
       else control.removeAttribute('aria-disabled');
     }
-    if (promo) promo.hidden = installed;
-    if (mainHelp) mainHelp.hidden = installed || ready;
+    if (entryHelp) entryHelp.hidden = installed || !showEntryHelp;
+    if (promo) promo.hidden = installed || (showEntryHelp && !ready);
+    if (mainHelp) mainHelp.hidden = installed || ready || showEntryHelp;
     if (linkPanel) linkPanel.hidden = installed || !publicURL;
     if (promoDetail) promoDetail.textContent = pending ? 'Finish in your browser.'
       : accepted ? 'Finish the browser confirmation.'
@@ -80,6 +93,8 @@ export function setupInstall(button, notify = () => {}, { production = import.me
     if (offlineStatus) offlineStatus.textContent = offline;
   }
   function announce(text) { message = text; update(); notify(text); }
+  // Initialize once per visit; asynchronous browser events must not reopen it.
+  if (entryHelp) entryHelp.open = showEntryHelp && !installed;
   update();
   function openHelp() {
     update();
@@ -87,10 +102,10 @@ export function setupInstall(button, notify = () => {}, { production = import.me
   }
   for (const control of [helpButton, mainHelp].filter(Boolean)) control.addEventListener('click', openHelp, options);
   appDisplay?.addEventListener?.('change', event => {
-    if (event.matches) { installed = true; deferredPrompt = null; update(); }
+    if (!inApp && event.matches) { installed = true; deferredPrompt = null; update(); }
   }, options);
   window.addEventListener('pageshow', () => {
-    if (appDisplay?.matches || navigator.standalone === true) { installed = true; deferredPrompt = null; }
+    if (inOwnAppWindow()) { installed = true; deferredPrompt = null; }
     update();
   }, options);
   window.addEventListener('beforeinstallprompt', event => {

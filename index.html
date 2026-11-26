@@ -44,6 +44,14 @@
             <button id="install-main" type="button" aria-describedby="install-promo-detail" hidden>Install</button>
             <button id="install-main-help" type="button" aria-describedby="install-promo-detail" aria-haspopup="dialog" aria-controls="install-dialog" hidden>How to install</button>
           </div>
+          <details id="install-entry-help" class="install-entry-help" hidden>
+            <summary>How to install</summary>
+            <div class="install-entry-body">
+              <p id="install-entry-guidance"></p>
+              <label for="install-entry-link">Game link to copy</label>
+              <input id="install-entry-link" type="url" readonly>
+            </div>
+          </details>
         </section>
       </aside>
       <section class="play-area" aria-label="Arrow cube puzzle">

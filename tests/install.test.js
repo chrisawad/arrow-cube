@@ -16,18 +16,21 @@ class Element extends EventTarget {
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function harness(t, { secure = true, embedded = false, installed = false, modern,
-  production = false, serviceWorker, readyState = 'complete', iosStandalone = false, userAgent = '' } = {}) {
+  production = false, serviceWorker, readyState = 'complete', iosStandalone = false, userAgent = '',
+  hash = '', referrer = '' } = {}) {
   const elements = new Map(['install', 'install-help', 'install-dialog', 'install-confirm',
     'install-status', 'install-guidance', 'install-offline', 'install-main', 'install-main-help',
-    'install-promo', 'install-promo-detail', 'install-link-panel', 'install-link'].map(id => [id, new Element()]));
+    'install-promo', 'install-promo-detail', 'install-link-panel', 'install-link',
+    'install-entry-help', 'install-entry-guidance', 'install-entry-link'].map(id => [id, new Element()]));
   elements.set('public-game-url', { href: 'https://cube.chrisawad.com/' });
   const win = new EventTarget();
   win.isSecureContext = secure; win.self = win; win.top = embedded ? {} : win;
+  win.location = { hash };
   const nav = { standalone: iosStandalone, userAgent };
   const display = new EventTarget(); display.matches = installed;
   if (modern) nav.install = modern;
   if (serviceWorker) nav.serviceWorker = serviceWorker;
-  const globals = { window: win, navigator: nav, document: { readyState, getElementById: id => elements.get(id) },
+  const globals = { window: win, navigator: nav, document: { readyState, referrer, getElementById: id => elements.get(id) },
     matchMedia: () => display };
   for (const [key, value] of Object.entries(globals)) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
@@ -81,12 +84,61 @@ test('Android without a prompt keeps help and a selectable game link available',
   const h = harness(t, { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 8 Pro)' });
   assert.equal(h.get('install-main').hidden, true);
   assert.equal(h.get('install-help').hidden, false);
+  assert.equal(h.get('install-entry-help').hidden, false);
+  assert.equal(h.get('install-entry-help').open, true);
+  assert.match(h.get('install-entry-guidance').textContent, /Open in Chrome.*Add to home screen/);
+  assert.equal(h.get('install-entry-link').value, 'https://cube.chrisawad.com/');
   h.get('install-help').click();
   assert.equal(h.get('install-dialog').open, true);
   assert.match(h.get('install-guidance').textContent, /Open in Chrome.*copy it, then paste it into Chrome/);
   assert.match(h.get('install-guidance').textContent, /Install.*Add to home screen.*app drawer/);
   assert.equal(h.get('install-link-panel').hidden, false);
   assert.equal(h.get('install-link').value, 'https://cube.chrisawad.com/');
+});
+
+test('dashboard launches ignore inherited standalone state until this game confirms installation', async t => {
+  const hash = '#from=games-dashboard&view=puzzle';
+  let rejectRegistration;
+  const h = harness(t, { installed: true, iosStandalone: true, hash, production: true,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X)',
+    serviceWorker: { register: () => new Promise((_, reject) => { rejectRegistration = reject; }) } });
+  t.mock.method(console, 'warn', () => {});
+  const entry = h.get('install-entry-help');
+  assert.equal(entry.hidden, false);
+  assert.equal(entry.open, true);
+  assert.equal(h.get('install-dialog').open, false, 'entry help stays inline');
+  assert.match(h.get('install-entry-guidance').textContent, /Open in Safari.*paste it into Safari.*Share.*Add to Home Screen/);
+  assert.equal(h.get('install-entry-link').value, 'https://cube.chrisawad.com/');
+  assert.equal(h.win.location.hash, hash);
+
+  entry.open = false;
+  rejectRegistration(new Error('denied'));
+  await flush();
+  h.win.dispatchEvent(new Event('pageshow'));
+  const change = new Event('change'); change.matches = true; h.display.dispatchEvent(change);
+  let prompts = 0;
+  offer(h.win, { prompt() { prompts++; return Promise.resolve(); } });
+  assert.equal(prompts, 0, 'native prompts require a click');
+  assert.equal(h.get('install-main').hidden, false);
+  assert.equal(entry.hidden, false);
+  assert.equal(entry.open, false, 'the dismissal lasts for this visit');
+
+  h.win.dispatchEvent(new Event('appinstalled'));
+  assert.equal(entry.hidden, true);
+  assert.equal(h.get('install-main').hidden, true);
+});
+
+test('an unmarked in-app browser can show entry help with an inherited app display mode', t => {
+  const h = harness(t, { installed: true, userAgent: 'Mozilla/5.0 (Linux; Android 15; wv) Chrome/140.0.0.0' });
+  assert.equal(h.get('install-entry-help').hidden, false);
+  assert.equal(h.get('install-entry-help').open, true);
+  assert.match(h.get('install-entry-guidance').textContent, /Chrome/);
+});
+
+test('an unmarked link referred by the dashboard can show help with inherited app display mode', t => {
+  const h = harness(t, { installed: true, referrer: 'https://games.chrisawad.com/' });
+  assert.equal(h.get('install-entry-help').hidden, false);
+  assert.equal(h.get('install-entry-help').open, true);
 });
 
 test('fallback prompts run directly on click, are single-use, and only confirm installation on appinstalled', async t => {
@@ -177,6 +229,7 @@ test('standalone apps suppress installation even if another prompt is offered', 
   assert.equal(h.get('install-promo').hidden, true);
   assert.equal(h.get('install-main').hidden, true);
   assert.equal(h.get('install-main-help').hidden, true);
+  assert.equal(h.get('install-entry-help').hidden, true);
   assert.equal(offer(h.win).defaultPrevented, false);
   h.get('install-help').click();
   assert.equal(h.get('install-dialog').open, true);
@@ -207,7 +260,7 @@ test('main-screen installation keeps direct click activation and hides the entir
   assert.equal(h.get('install-main').getAttribute('aria-disabled'), 'true');
   h.get('install').click(); assert.equal(calls, 1, 'all install controls share one pending request');
   await flush();
-  assert.equal(h.get('install-promo').hidden, false, 'accepting a request is not yet confirmation');
+  assert.equal(h.get('install-entry-help').hidden, false, 'accepting a request is not yet confirmation');
   assert.match(h.get('install-promo-detail').textContent, /Finish/);
   h.win.dispatchEvent(new Event('appinstalled'));
   assert.equal(h.get('install-promo').hidden, true);
