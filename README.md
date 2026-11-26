@@ -128,7 +128,7 @@ Run the installable local build with:
 pnpm app
 ```
 
-On the laptop hosting the game, open **http://localhost:4173/** in Chrome or Edge. This runs entirely on your machine. The existing development server at port 5173 can keep running separately. The production build includes the manifest, app icons, and offline worker. When the browser offers direct installation, Install replaces the manual instructions on the main screen and in Settings. Otherwise, mobile and Games Dashboard launches show a short inline instruction and Copy link. Tap How to install to collapse or reopen it. The promotion and inline instructions disappear after confirmed installation or in the installed Arrow Cube window.
+On the laptop hosting the game, open **http://localhost:4173/** in Chrome or Edge. This runs entirely on your machine. The existing development server at port 5173 can keep running separately. The production build includes the manifest, app icons, and offline worker. If installation is unconfirmed, Arrow Cube offers to install once per visit. Select **Not now** to play or reopen the dialog from **Settings → Install**. The dialog uses the browser’s install action when available and provides platform-specific steps when needed.
 
 Installation requires **HTTPS** or a loopback address such as `localhost`. The HTTP LAN address `http://riva-laptop:5173/` can play the game, but cannot offer the normal PWA installation flow. On another device, use a trusted HTTPS connection to this local server; `localhost` on a phone refers to the phone itself. An embedded preview may not support installation, so open the game in the device's full browser. Installation remains controlled by the browser.
 

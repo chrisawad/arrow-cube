@@ -38,20 +38,6 @@
             <button id="reset-tokens" class="reset-tokens" type="button" aria-label="6 resets available. Refill hearts." aria-haspopup="dialog" aria-controls="loss-dialog"><span>Resets</span><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" data-reset><circle class="reset-fill" cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="10"/><path d="M7.2 9a5.5 5.5 0 1 1-.5 4M7 5.8V10h4.2"/></svg></button>
           </div>
           <progress id="reset-recharge-progress" class="sr-only" max="100" value="0" aria-label="Next reset recharge" hidden></progress>
-          <div id="install-promo" class="install-promo" hidden>
-            <strong class="install-promo-copy">Get the app</strong>
-            <span id="install-promo-detail" class="sr-only">Full screen. Play offline.</span>
-            <button id="install-main" type="button" aria-describedby="install-promo-detail" hidden>Install</button>
-            <button id="install-main-help" type="button" aria-describedby="install-promo-detail" aria-haspopup="dialog" aria-controls="install-dialog" hidden>How to install</button>
-          </div>
-          <details id="install-entry-help" class="install-entry-help" hidden>
-            <summary>How to install</summary>
-            <div class="install-entry-body">
-              <p id="install-entry-guidance"></p>
-              <button id="install-entry-copy" class="quiet" type="button">Copy link</button>
-              <input id="install-entry-link" type="url" aria-label="Game link to copy" readonly hidden>
-            </div>
-          </details>
         </section>
       </aside>
       <section class="play-area" aria-label="Arrow cube puzzle">
@@ -84,7 +70,7 @@
       <button id="theme-settings" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="theme-dialog"><span>Theme colors</span><span aria-hidden="true">›</span></button>
       <button id="choose-size" class="setting-row setting-action" type="button" aria-haspopup="dialog" aria-controls="difficulty-dialog"><span>Difficulty</span><span><b id="dimension">5 × 5</b> <span aria-hidden="true">›</span></span></button>
     </div>
-    <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><div><button id="install-help" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog">How to install</button><button id="install" class="quiet" type="button" hidden>Install app <span aria-hidden="true">↗</span></button></div></div>
+    <div class="settings-footer"><span class="saved" id="save-status"><i></i> Progress saved</span><button id="install" class="quiet" type="button" aria-haspopup="dialog" aria-controls="install-dialog" hidden>Install</button></div>
   </dialog>
   <dialog id="theme-dialog" popover="auto" aria-labelledby="theme-title">
     <button id="theme-close" class="dialog-close" type="button" aria-label="Close theme colors" autofocus>×</button>
@@ -196,19 +182,35 @@
     </details>
     <button class="primary help-done" type="button" data-close>Play</button>
   </dialog>
-  <dialog id="install-dialog" aria-labelledby="install-title">
-    <button class="dialog-close" type="button" data-close aria-label="Close">×</button>
-    <span class="eyebrow">TAKE THE CUBE WITH YOU</span>
-    <h2 id="install-title">How to install Arrow Cube</h2>
-    <p id="install-status" role="status"></p>
-    <p id="install-guidance"></p>
-    <div id="install-link-panel" hidden>
-      <label for="install-link">Game link to copy</label>
-      <input id="install-link" type="url" readonly>
+  <dialog id="install-dialog" aria-labelledby="install-title" aria-describedby="install-description">
+    <h2 id="install-title">Install Arrow Cube</h2>
+    <p id="install-description">Keep Arrow Cube on your home screen and play offline after your first visit.</p>
+    <div id="install-manual">
+      <ol class="install-steps" data-install-steps="ios" hidden>
+        <li data-install-context="embedded" hidden>Use <strong>Open in Safari</strong> in this window’s menu, or copy the game link below and open it in Safari. Tap <strong>Share</strong>.</li>
+        <li data-install-context="browser" hidden>Open <span data-install-name="secure">Arrow Cube</span><a data-install-name="insecure" data-install-url>Arrow Cube</a> in Safari and tap <strong>Share</strong>.</li>
+        <li>Choose <strong>Add to Home Screen</strong>. Turn on <strong>Open as Web App</strong> if offered, then tap <strong>Add</strong>.</li>
+      </ol>
+      <ol class="install-steps" data-install-steps="android" hidden>
+        <li data-install-context="embedded" hidden>Choose <strong>Open in Chrome</strong> in this window’s menu, or copy the game link below and open it in Chrome.</li>
+        <li data-install-context="browser" hidden>Open <span data-install-name="secure">Arrow Cube</span><a data-install-name="insecure" data-install-url>Arrow Cube</a> in Chrome.</li>
+        <li>Tap Chrome’s <strong>⋮ menu</strong>, choose <strong>Install app</strong> or <strong>Add to Home screen</strong>, and follow the prompt.</li>
+      </ol>
+      <p class="install-steps" data-install-steps="insecure" hidden>To install from this preview, open <a data-install-url>Arrow Cube over HTTPS</a>.</p>
+      <p class="install-steps" data-install-steps="safari" hidden>In Safari, choose <strong>File → Add to Dock</strong>, then select <strong>Add</strong>.</p>
+      <p class="install-steps" data-install-steps="desktop" hidden>Open Arrow Cube in Chrome or Edge and choose the <strong>install option</strong> in the address bar or browser menu.</p>
+      <details id="install-copy">
+        <summary>Copy the game link</summary>
+        <div class="install-link-row">
+          <input id="install-link" aria-label="Game link" readonly>
+          <button class="secondary" id="install-copy-button" type="button">Copy link</button>
+        </div>
+        <p id="install-copy-status" role="status"></p>
+      </details>
     </div>
-    <p id="install-offline" class="small"></p>
-    <button id="install-confirm" class="primary" type="button" hidden>Install app <span aria-hidden="true">↗</span></button>
-    <button class="quiet" type="button" data-close>Keep playing</button>
+    <button id="install-confirm" class="primary" type="button" hidden>Install app</button>
+    <p id="install-status" role="status"></p>
+    <button id="install-dismiss" class="secondary" type="button" data-close autofocus>Not now</button>
   </dialog>
   <noscript>This game needs JavaScript enabled to render the 3D cube.</noscript>
   <script type="module" src="/src/main.js"></script>

@@ -1,234 +1,220 @@
-/** Installation remains browser-controlled; help is available even without a prompt. */
-export function setupInstall(button, notify = () => {}, { production = import.meta.env?.PROD === true } = {}) {
-  const helpButton = document.getElementById('install-help');
-  const helpDialog = document.getElementById('install-dialog');
-  const dialogButton = document.getElementById('install-confirm');
-  const status = document.getElementById('install-status');
-  const guidance = document.getElementById('install-guidance');
-  const linkPanel = document.getElementById('install-link-panel');
-  const gameLink = document.getElementById('install-link');
-  const offlineStatus = document.getElementById('install-offline');
-  const mainButton = document.getElementById('install-main');
-  const mainHelp = document.getElementById('install-main-help');
-  const promo = document.getElementById('install-promo');
-  const promoDetail = document.getElementById('install-promo-detail');
-  const entryHelp = document.getElementById('install-entry-help');
-  const entryGuidance = document.getElementById('install-entry-guidance');
-  const entryCopy = document.getElementById('install-entry-copy');
-  const entryLink = document.getElementById('install-entry-link');
-  const buttons = [button, dialogButton, mainButton].filter(Boolean);
+export function setupInstall(button, { production = import.meta.env?.PROD === true } = {}) {
+  const get = id => document.getElementById(id);
+  const dialog = get('install-dialog');
+  const confirm = get('install-confirm');
+  const dismiss = get('install-dismiss');
+  const manual = get('install-manual');
+  const status = get('install-status');
+  const copyDetails = get('install-copy');
+  const link = get('install-link');
+  const copyStatus = get('install-copy-status');
+  const publicURL = get('public-game-url').href;
   const secure = window.isSecureContext === true;
   const embedded = window.self !== window.top;
   const modernInstall = secure && !embedded && typeof navigator.install === 'function';
-  const userAgent = navigator.userAgent || '';
-  const android = navigator.userAgentData?.platform === 'Android' || /Android/i.test(userAgent);
-  const appleMobile = /iPhone|iPad|iPod/.test(userAgent) || navigator.standalone === true
+  const agent = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod/.test(agent) || navigator.standalone === true
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const fromDashboard = new URLSearchParams(window.location.hash.slice(1)).get('from') === 'games-dashboard'
-    || /^https:\/\/(?:games\.chrisawad\.com(?:\/|$)|chrisawad\.github\.io\/games-dashboard(?:[/?#]|$))/i.test(document.referrer);
-  const inApp = embedded || fromDashboard || /\bwv\b|FBAN\/|FBAV\/|Instagram|GSA\/|TikTok|Line\//i.test(userAgent);
-  // Some in-app tabs have the same user agent as the mobile browser.
-  const showEntryHelp = inApp || android || appleMobile;
-  const launchInstructions = android
-    ? 'Swipe up from your Home Screen to open the app drawer. Search for Arrow Cube, then tap it to play.'
-    : appleMobile ? 'Find Arrow Cube on your Home Screen and tap it to play.'
-      : 'Find Arrow Cube in your device’s app launcher or your browser’s installed apps.';
-  const installInstructions = android
-    ? 'In the in-app browser menu, choose Open in Chrome or Open in browser. If that option is missing, press and hold the game link below to copy it, then paste it into Chrome. In Chrome, open the ⋮ menu and look for Install, Install and create shortcut, or Add to home screen. If Arrow Cube is already installed, swipe up from your Home Screen and search for it in the app drawer.'
-    : appleMobile
-      ? 'In the in-app browser menu, choose Open in Safari if available. Otherwise copy the game link below and paste it into Safari. In Safari, tap Share, then Add to Home Screen. Turn on Open as Web App if you see it, then tap Add.'
-      : 'Open the game in a full browser. Look for the Install icon in the address bar or check the browser menu for Install page as app in Chrome or Apps in Edge.';
-  const publicURL = document.getElementById('public-game-url')?.href;
-  if (gameLink && publicURL) gameLink.value = publicURL;
-  if (entryLink && publicURL) entryLink.value = publicURL;
-  if (entryGuidance) entryGuidance.textContent = android
-    ? 'Open in Chrome → ⋮ → Install or Add to home screen.'
-    : appleMobile
-      ? 'Open in Safari → Share → Add to Home Screen → Add.'
-      : 'Open in Chrome or Edge and look for Install in the address bar or menu.';
+  const android = navigator.userAgentData?.platform === 'Android' || /Android/i.test(agent);
+  const macSafari = /Macintosh/.test(agent) && /Version\/.*Safari\//.test(agent);
+  const platform = ios ? 'ios' : android ? 'android' : !secure ? 'insecure' : macSafari ? 'safari' : 'desktop';
+  const display = window.matchMedia?.('(display-mode: standalone)');
   const controller = new AbortController();
   const options = { signal: controller.signal };
-  let deferredPrompt = null, pending = false, accepted = false, message = '';
-  const appDisplay = globalThis.matchMedia?.('(display-mode: standalone)');
-  // A dashboard window can carry its own display mode into this page.
-  const inOwnAppWindow = () => !inApp && (appDisplay?.matches || navigator.standalone === true);
+  let visit = 0;
+  let timer;
+  let ready = false;
+  let offered = false;
+  let pending = false;
+  let deferredPrompt = null;
+  let external = isExternalLaunch();
   let installed = inOwnAppWindow();
-  let offline = !secure ? 'Offline play needs a secure connection.'
-    : !production ? 'Offline play is not enabled for this preview. Use the full app address for offline play.'
-      : !('serviceWorker' in navigator) ? 'This browser does not provide offline app support.' : 'Preparing offline play…';
+
+  link.value = publicURL;
+  for (const anchor of document.querySelectorAll('[data-install-url]')) anchor.href = publicURL;
+  for (const steps of document.querySelectorAll('[data-install-steps]')) {
+    steps.hidden = steps.dataset.installSteps !== platform;
+  }
+  for (const name of document.querySelectorAll('[data-install-name]')) {
+    name.hidden = name.dataset.installName !== (secure ? 'secure' : 'insecure');
+  }
+
+  function isExternalLaunch() {
+    const fromDashboard = new URLSearchParams(window.location.hash.slice(1)).getAll('from').includes('games-dashboard')
+      || /^https:\/\/(?:games\.chrisawad\.com(?:\/|$)|chrisawad\.github\.io\/games-dashboard(?:[/?#]|$))/i.test(document.referrer);
+    const androidApp = android && /^android-app:\/\/(?!org\.chromium\.webapk\.)/i.test(document.referrer);
+    const namedApp = /FBAN|FBAV|FB_IAB|Instagram|MicroMessenger|\bLine\/|LinkedInApp|GSA\/|Snapchat|TikTok|BytedanceWebview|Pinterest|Twitter for/i.test(agent);
+    const inAppBrowser = ((ios || android) && namedApp)
+      || (android && /;\s*wv\b|Version\/4\.0.*Chrome\//i.test(agent))
+      || (ios && /AppleWebKit/i.test(agent) && !/Safari\//i.test(agent) && !display?.matches && navigator.standalone !== true);
+    return embedded || fromDashboard || androidApp || inAppBrowser;
+  }
+
+  function inOwnAppWindow() {
+    return !external && (display?.matches === true || navigator.standalone === true);
+  }
 
   function update() {
-    const ready = secure && !embedded && !installed && (pending || modernInstall || deferredPrompt !== null);
-    for (const control of buttons) {
-      control.hidden = !ready;
-      if (pending) control.setAttribute('aria-disabled', 'true');
-      else control.removeAttribute('aria-disabled');
-    }
-    if (helpButton) helpButton.hidden = ready;
-    if (entryHelp) entryHelp.hidden = installed || ready || !showEntryHelp;
-    if (promo) promo.hidden = installed || (showEntryHelp && !ready);
-    if (mainHelp) mainHelp.hidden = installed || ready || showEntryHelp;
-    if (linkPanel) linkPanel.hidden = installed || ready || !publicURL;
-    if (promoDetail) promoDetail.textContent = pending ? 'Finish in your browser.'
-      : accepted ? 'Finish the browser confirmation.'
-        : !secure ? 'Use a secure link to install.'
-          : embedded ? 'Install from your browser.' : 'Full screen. Play offline.';
-    if (promo && promoDetail) promo.title = promoDetail.textContent;
-    let title;
-    let detail = installInstructions;
-    if (installed) {
-      title = 'Arrow Cube is installed or running as an app.';
-      detail = launchInstructions;
-    } else if (!secure) {
-      title = 'This address cannot offer app installation.';
-      detail = `Use the public HTTPS game link below. ${installInstructions}`;
-    } else if (embedded) {
-      title = 'Open the game directly in a browser.';
-    } else if (pending) {
-      title = 'Continue in your browser’s install prompt.';
-    } else if (ready) {
-      title = 'Your browser is ready to install Arrow Cube.';
-    } else if (accepted) {
-      title = 'The browser accepted your install request.';
-      detail = `Finish any remaining browser confirmation. ${installInstructions}`;
-    } else {
-      title = 'Your browser has not offered an install prompt.';
-    }
-    if (status) status.textContent = message || title;
-    if (guidance) {
-      guidance.hidden = ready;
-      guidance.textContent = detail;
-    }
-    if (offlineStatus) offlineStatus.textContent = offline;
+    const native = !installed && (pending || modernInstall || deferredPrompt !== null);
+    button.hidden = installed;
+    manual.hidden = native && !external;
+    confirm.hidden = !native;
+    confirm.setAttribute('aria-disabled', String(pending));
+    confirm.textContent = pending ? 'Installing…' : 'Install app';
   }
+
   function confirmInstalled() {
     installed = true;
     deferredPrompt = null;
-    accepted = false;
-    message = '';
-  }
-  function announce(text) { message = text; update(); notify(text); }
-  // Initialize once per visit; asynchronous browser events must not reopen it.
-  if (entryHelp) entryHelp.open = showEntryHelp && !installed;
-  update();
-  function openHelp() {
+    status.textContent = '';
     update();
-    if (helpDialog && !helpDialog.open) helpDialog.showModal();
+    if (dialog.open) dialog.close();
   }
-  for (const control of [helpButton, mainHelp].filter(Boolean)) control.addEventListener('click', openHelp, options);
-  entryCopy?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(publicURL);
-      if (!controller.signal.aborted) notify('Game link copied.');
-    } catch {
-      if (controller.signal.aborted || installed || !entryLink) return;
-      entryLink.hidden = false;
-      entryLink.focus();
-      entryLink.select();
-    }
-  }, options);
 
-  async function checkInstalledApp() {
+  function show() {
+    if (installed || dialog.open) return;
+    copyStatus.textContent = '';
+    status.textContent = '';
+    copyDetails.open = external;
+    for (const step of document.querySelectorAll('[data-install-context]')) {
+      step.hidden = step.dataset.installContext !== (external ? 'embedded' : 'browser');
+    }
+    update();
+    const focusInstall = !confirm.hidden && !external;
+    confirm.toggleAttribute('autofocus', focusInstall);
+    dismiss.toggleAttribute('autofocus', !focusInstall);
+    dialog.showModal();
+    offered = true;
+  }
+
+  function offerInstall() {
+    if (!ready || offered || installed || document.visibilityState === 'hidden') return;
+    if (document.querySelector('dialog[open], dialog:is(:popover-open)')) {
+      // Another game dialog already owns this visit's entry interaction.
+      offered = true;
+      return;
+    }
+    show();
+  }
+
+  async function checkInstalled(current) {
     if (installed || !secure || embedded || typeof navigator.getInstalledRelatedApps !== 'function') return;
     const manifestURL = document.querySelector('link[rel~="manifest"]')?.href;
     if (!manifestURL) return;
     const manifestID = new URL('./', manifestURL).href;
     try {
       const related = await navigator.getInstalledRelatedApps();
-      if (controller.signal.aborted || installed) return;
+      if (controller.signal.aborted || current !== visit || installed) return;
       if (related.some(app => app.platform === 'webapp' && (app.url
         ? app.url === manifestURL
         : app.id === manifestID))) {
         confirmInstalled();
-        update();
       }
     } catch {
-      // An unavailable or denied lookup leaves the manual instructions visible.
+      // A missing or denied result leaves installation unconfirmed.
     }
   }
-  if (document.readyState === 'complete') checkInstalledApp();
-  else window.addEventListener('load', checkInstalledApp, { ...options, once: true });
 
-  appDisplay?.addEventListener?.('change', event => {
-    if (!inApp && event.matches) { confirmInstalled(); update(); }
-  }, options);
-  window.addEventListener('pageshow', () => {
-    if (!installed && inOwnAppWindow()) confirmInstalled();
+  function beginVisit() {
+    const current = ++visit;
+    offered = false;
+    ready = false;
+    external = isExternalLaunch();
+    if (inOwnAppWindow()) confirmInstalled();
     update();
+    clearTimeout(timer);
+    function offerWhenReady() {
+      if (controller.signal.aborted || current !== visit || ready) return;
+      clearTimeout(timer);
+      ready = true;
+      offerInstall();
+    }
+    // Give the browser a moment to confirm this app without waiting on a hung lookup.
+    timer = setTimeout(offerWhenReady, 300);
+    checkInstalled(current).then(offerWhenReady);
+  }
+
+  button.addEventListener('click', () => {
+    if (installed) return;
+    const settings = button.closest('dialog');
+    if (settings?.open) settings.close();
+    show();
+  }, options);
+  link.addEventListener('focus', () => link.select(), options);
+  get('install-copy-button').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(publicURL);
+      copyStatus.textContent = 'Link copied.';
+    } catch {
+      if (!dialog.open) return;
+      link.focus();
+      link.select();
+      copyStatus.textContent = 'Use your device’s Copy command to copy the selected link.';
+    }
+  }, options);
+
+  update();
+  if (document.readyState === 'complete') beginVisit();
+  else window.addEventListener('load', beginVisit, { ...options, once: true });
+  document.addEventListener('visibilitychange', offerInstall, options);
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted) return;
+    if (dialog.open) dialog.close();
+    beginVisit();
+  }, options);
+  display?.addEventListener?.('change', () => {
+    if (inOwnAppWindow()) confirmInstalled();
   }, options);
   window.addEventListener('beforeinstallprompt', event => {
     if (!secure || embedded || installed) return;
     event.preventDefault();
-    deferredPrompt = event; accepted = false; message = ''; update();
+    deferredPrompt = event;
+    status.textContent = '';
+    update();
   }, options);
-  window.addEventListener('appinstalled', () => {
-    confirmInstalled();
-    announce('Arrow Cube is installed.');
-  }, options);
+  window.addEventListener('appinstalled', confirmInstalled, options);
 
-  async function install() {
-    if (pending || installed || !secure || embedded || (!modernInstall && !deferredPrompt)) return;
-    pending = true; message = ''; update();
+  confirm.addEventListener('click', async () => {
+    if (pending || installed || (!modernInstall && !deferredPrompt)) return;
+    pending = true;
+    status.textContent = '';
+    update();
     try {
+      // Call the browser installer directly in the click handler to retain user activation.
       if (modernInstall) {
-        // Call before any await so browser-controlled consent retains the click activation.
         await navigator.install();
-        if (controller.signal.aborted) return;
-        confirmInstalled();
-        announce('Arrow Cube was installed or opened.');
+        if (!controller.signal.aborted) confirmInstalled();
       } else {
-        // The captured event is single-use, including after dismissal or a failure.
         const prompt = deferredPrompt;
         deferredPrompt = null;
-        const prompting = prompt.prompt();
-        update();
-        await prompting;
+        await prompt.prompt();
         const choice = await prompt.userChoice;
-        if (controller.signal.aborted) return;
-        if (!installed) {
-          accepted = choice.outcome === 'accepted';
-          announce(accepted ? 'Install request accepted. Finish any browser confirmation.'
-            : 'Installation canceled. Choose How to install for other options.');
+        if (!controller.signal.aborted && !installed && choice.outcome !== 'accepted') {
+          status.textContent = 'Installation canceled. You can keep playing here.';
         }
       }
     } catch (error) {
-      if (controller.signal.aborted) return;
-      if (!installed) announce(error?.name === 'AbortError'
-        ? 'Installation was canceled or could not complete. You can keep playing here.'
-        : 'Installation could not start. Try again when your browser offers it, or check its app-install option.');
-      if (error?.name !== 'AbortError') console.warn('Installation could not start.', error);
-    } finally { pending = false; if (!controller.signal.aborted) update(); }
-  }
-  for (const control of buttons) control.addEventListener('click', install, options);
-
-  // Keep the default worker lifecycle: no forced reload during an active puzzle.
-  if (production && secure && 'serviceWorker' in navigator) {
-    const register = async () => {
-      try {
-        const registration = await navigator.serviceWorker.register('./sw.js');
-        if (controller.signal.aborted) return;
-        const watch = () => {
-          const worker = registration.installing || registration.waiting || registration.active;
-          const check = () => {
-            if (controller.signal.aborted) return;
-            if (registration.active?.state === 'activated' || worker?.state === 'activated') offline = 'Offline play is ready on this device.';
-            else if (worker?.state === 'redundant') offline = 'Offline setup could not finish. You can keep playing online.';
-            update();
-          };
-          worker?.addEventListener('statechange', check, options);
-          check();
-        };
-        registration.addEventListener('updatefound', watch, options);
-        watch();
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.warn('Offline mode could not be enabled.', error);
-        offline = 'Offline setup could not finish. You can keep playing online.';
-        update();
+      if (!controller.signal.aborted && !installed) {
+        status.textContent = error?.name === 'AbortError'
+          ? 'Installation canceled. You can keep playing here.'
+          : 'The installer could not open. Try again or use your browser’s install menu.';
       }
-    };
+    } finally {
+      pending = false;
+      if (!controller.signal.aborted) update();
+    }
+  }, options);
+
+  // Keep the default worker lifecycle so updates cannot interrupt an active puzzle.
+  if (production && secure && 'serviceWorker' in navigator) {
+    const register = () => navigator.serviceWorker.register('./sw.js').catch(error => {
+      if (!controller.signal.aborted) console.warn('Offline mode could not be enabled.', error);
+    });
     if (document.readyState === 'complete') register();
-    else window.addEventListener('load', register, { once: true, signal: controller.signal });
+    else window.addEventListener('load', register, { ...options, once: true });
   }
-  return () => controller.abort();
+  return () => {
+    controller.abort();
+    clearTimeout(timer);
+  };
 }

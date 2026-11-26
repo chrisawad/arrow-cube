@@ -242,7 +242,7 @@ $('difficulty-form').addEventListener('submit',event=>{
 });
 $('next-level').addEventListener('click',()=>{$('win-dialog').close();start(Math.min(64,puzzle.size+1));notify(`Level ${puzzle.size} ready.`);});
 $('cube-stage').addEventListener('keydown',event=>{if(event.defaultPrevented)return;const rotations={ArrowLeft:[-.22,0],ArrowRight:[.22,0],ArrowUp:[0,-.22],ArrowDown:[0,.22]};if(rotations[event.key]){event.preventDefault();view.rotateBy(...rotations[event.key]);}else if(event.key.toLowerCase()==='h'){event.preventDefault();hint();}else if(event.key==='Enter'&&hintId!==null){event.preventDefault();selectArrow(hintId,hintReverse);}});
-setupInstall($('install'),notify);
+setupInstall($('install'));
 setInterval(()=>{if(document.visibilityState!=='hidden')refreshResources();},1000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')refreshResources();});
 window.addEventListener('pageshow',()=>refreshResources());
