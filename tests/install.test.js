@@ -126,7 +126,10 @@ test('dashboard launches ignore inherited standalone state until this game confi
   offer(h.win, { prompt() { prompts++; return Promise.resolve(); } });
   assert.equal(prompts, 0, 'native prompts require a click');
   assert.equal(h.get('install-main').hidden, false);
-  assert.equal(entry.hidden, false);
+  assert.equal(entry.hidden, true, 'Install replaces the fallback');
+  h.get('install-main').click();
+  await flush();
+  assert.equal(entry.hidden, false, 'dismissed prompts restore the fallback');
   assert.equal(entry.open, false, 'the dismissal lasts for this visit');
 
   h.win.dispatchEvent(new Event('appinstalled'));
@@ -148,6 +151,7 @@ test('a verifiable Arrow Cube install hides entry help without waiting before sh
   assert.equal(h.get('install-entry-help').hidden, false);
   offer(h.win);
   assert.equal(h.get('install-main').hidden, false);
+  assert.equal(h.get('install-entry-help').hidden, true, 'the pending lookup does not block Install');
   resolveLookup([{ platform: 'webapp', url: manifestURL }]);
   await flush();
   assert.equal(h.get('install-entry-help').hidden, true);
@@ -302,7 +306,7 @@ test('standalone apps suppress installation even if another prompt is offered', 
   assert.equal(h.get('install-link-panel').hidden, true);
 });
 
-test('the main-screen promotion appears immediately, with help until a usable prompt is offered', t => {
+test('the direct Install action replaces manual help even if the help dialog is already open', t => {
   const h = harness(t);
   assert.equal(h.get('install-promo').hidden, false);
   assert.equal(h.get('install-main').hidden, true);
@@ -314,14 +318,20 @@ test('the main-screen promotion appears immediately, with help until a usable pr
   assert.equal(prompts, 0, 'show the promotion without opening browser consent automatically');
   assert.equal(h.get('install-main').hidden, false);
   assert.equal(h.get('install-main-help').hidden, true);
-  assert.equal(h.get('install-help').hidden, false);
+  assert.equal(h.get('install-help').hidden, true);
+  assert.equal(h.get('install-guidance').hidden, true);
+  assert.equal(h.get('install-link-panel').hidden, true);
+  assert.equal(h.get('install-confirm').hidden, false);
 });
 
 test('main-screen installation keeps direct click activation and hides the entire promotion on appinstalled', async t => {
   const h = harness(t, { userAgent: 'Mozilla/5.0 (Linux; Android 15)' });
   let clicking = false, calls = 0;
   offer(h.win, { prompt() { assert(clicking); calls++; return Promise.resolve(); }, choice: Promise.resolve({ outcome: 'accepted' }) });
+  assert.equal(h.get('install-entry-help').hidden, true);
+  assert.equal(h.get('install-help').hidden, true);
   clicking = true; h.get('install-main').click(); clicking = false;
+  assert.equal(h.get('install-entry-help').hidden, true);
   assert.equal(h.get('install-main').getAttribute('aria-disabled'), 'true');
   h.get('install').click(); assert.equal(calls, 1, 'all install controls share one pending request');
   await flush();

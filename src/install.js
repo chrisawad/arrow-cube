@@ -64,10 +64,11 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       if (pending) control.setAttribute('aria-disabled', 'true');
       else control.removeAttribute('aria-disabled');
     }
-    if (entryHelp) entryHelp.hidden = installed || !showEntryHelp;
+    if (helpButton) helpButton.hidden = ready;
+    if (entryHelp) entryHelp.hidden = installed || ready || !showEntryHelp;
     if (promo) promo.hidden = installed || (showEntryHelp && !ready);
     if (mainHelp) mainHelp.hidden = installed || ready || showEntryHelp;
-    if (linkPanel) linkPanel.hidden = installed || !publicURL;
+    if (linkPanel) linkPanel.hidden = installed || ready || !publicURL;
     if (promoDetail) promoDetail.textContent = pending ? 'Finish in your browser.'
       : accepted ? 'Finish the browser confirmation.'
         : !secure ? 'Use a secure link to install.'
@@ -94,7 +95,10 @@ export function setupInstall(button, notify = () => {}, { production = import.me
       title = 'Your browser has not offered an install prompt.';
     }
     if (status) status.textContent = message || title;
-    if (guidance) guidance.textContent = detail;
+    if (guidance) {
+      guidance.hidden = ready;
+      guidance.textContent = detail;
+    }
     if (offlineStatus) offlineStatus.textContent = offline;
   }
   function confirmInstalled() {
